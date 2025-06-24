@@ -119,7 +119,7 @@ def create_upstream_metadata(all_tags: List[str], current_tag: str,
         
         # 为当前tag添加下载信息
         if tag == current_tag:
-            package_filename = f"kicad-libraries-{tag}.zip"
+            package_filename = f"sifli-kicad-libraries-{tag}.zip"
             download_url = f"{repo_info['download_base']}/{tag}/{package_filename}"
             
             version_info.update({
