@@ -1,0 +1,73 @@
+name: Release KiCAD Library
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0  # 获取完整的git历史，包括所有tags
+    
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+    
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install requests
+    
+    - name: Get current tag
+      id: get_tag
+      run: echo "tag=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+    
+    - name: Build library package
+      id: build
+      run: |
+        python scripts/build_release.py
+        echo "package_path=$(cat package_path.txt)" >> $GITHUB_OUTPUT
+        echo "metadata_path=$(cat metadata_path.txt)" >> $GITHUB_OUTPUT
+        echo "package_size=$(cat package_size.txt)" >> $GITHUB_OUTPUT
+        echo "install_size=$(cat install_size.txt)" >> $GITHUB_OUTPUT
+        echo "package_sha256=$(cat package_sha256.txt)" >> $GITHUB_OUTPUT
+    
+    - name: Create Release
+      uses: ncipollo/release-action@v1
+      with:
+        artifacts: |
+          ${{ steps.build.outputs.package_path }}
+          ${{ steps.build.outputs.metadata_path }}
+        tag: ${{ steps.get_tag.outputs.tag }}
+        name: Release ${{ steps.get_tag.outputs.tag }}
+        body: |
+          ## SiFli KiCAD Library ${{ steps.get_tag.outputs.tag }}
+          
+          ### Package Information
+          - **Package Size**: ${{ steps.build.outputs.package_size }} bytes
+          - **Install Size**: ${{ steps.build.outputs.install_size }} bytes
+          - **SHA256**: `${{ steps.build.outputs.package_sha256 }}`
+          
+          ### Installation
+          1. Download the `kicad-libraries-${{ steps.get_tag.outputs.tag }}.zip` file
+          2. Extract to your KiCAD libraries directory
+          3. Or install via KiCAD Package and Content Manager using the `metadata.json`
+          
+          ### What's Included
+          - SiFli MCU symbols
+          - SiFli module footprints
+          - Resources and documentation
+          
+          For more information, visit the [SiFli Hardware Design Guidelines](https://wiki.sifli.com/hardware/index.html).
+        draft: false
+        prerelease: false
+        token: ${{ secrets.GITHUB_TOKEN }}
