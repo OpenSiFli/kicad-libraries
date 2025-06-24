@@ -114,7 +114,7 @@ def create_upstream_metadata(all_tags: List[str], current_tag: str,
         version_info = {
             "version": tag,
             "status": "stable",
-            "kicad_version": "6.0"
+            "kicad_version": "9.0"
         }
         
         # 为当前tag添加下载信息
