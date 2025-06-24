@@ -92,7 +92,7 @@ def create_package_metadata(all_tags: List[str], current_tag: str) -> Dict[str, 
         version_info = {
             "version": tag,
             "status": "stable" if tag == current_tag else "stable",
-            "kicad_version": "6.0"
+            "kicad_version": "9.0"
         }
         versions.append(version_info)
     

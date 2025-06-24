@@ -3,7 +3,7 @@ name: Release KiCAD Library
 on:
   push:
     tags:
-      - 'v*'
+      - '*'
 
 jobs:
   release:
