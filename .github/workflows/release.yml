@@ -58,7 +58,7 @@ jobs:
           - **SHA256**: `${{ steps.build.outputs.package_sha256 }}`
           
           ### Installation
-          1. Download the `kicad-libraries-${{ steps.get_tag.outputs.tag }}.zip` file
+          1. Download the `sifli-kicad-libraries-${{ steps.get_tag.outputs.tag }}.zip` file
           2. Extract to your KiCAD libraries directory
           3. Or install via KiCAD Package and Content Manager using the `metadata.json`
           

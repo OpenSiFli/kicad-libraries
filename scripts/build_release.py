@@ -180,7 +180,7 @@ def create_library_package(current_tag: str) -> Dict[str, Any]:
         install_size = calculate_directory_size(temp_dir)
         
         # 创建zip包
-        package_filename = f"kicad-libraries-{current_tag}.zip"
+        package_filename = f"sifli-kicad-libraries-{current_tag}.zip"
         package_path = Path(package_filename)
         
         with zipfile.ZipFile(package_path, 'w', zipfile.ZIP_DEFLATED) as zipf:
