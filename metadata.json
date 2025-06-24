@@ -1,0 +1,31 @@
+{
+    "$schema": "https://go.kicad.org/pcm/schemas/v1",
+    "name": "SiFli Library",
+    "description": "This addon contains the Symbols, Footprint, and 3D Models for the SiFli SoC and Modules family.",
+    "description_full": "This addon contains the Symbols, Footprint, and 3D Models for the SiFli SoC and Modules family. All footprints were designed according to the Recommended PCB Land Pattern section present on each module datasheet.\n\n\n # Hardware Design Guidelines\n\n Before designing your hardware, be sure to check all recommendations at:\n\n- SiFli Hardware Design Guidelines:https://wiki.sifli.com/hardware/index.html",
+    "identifier": "com.github.OpenSiFli.kicad-libraries",
+    "type": "library",
+    "author": {
+        "name": "HalfSweet",
+        "contact": {
+            "web": "https://github.com/OpenSiFli/kicad-libraries"
+        }
+    },
+    "maintainer": {
+        "name": "HalfSweet",
+        "contact": {
+            "web": "https://github.com/OpenSiFli/kicad-libraries"
+        }
+    },
+    "license": "CC-BY-SA-4.0",
+    "resources": {
+        "homepage": "https://github.com/OpenSiFli/kicad-libraries"
+    },
+    "versions": [
+        {
+            "version": "1.0.0",
+            "status": "stable",
+            "kicad_version": "9.0.0"
+        }
+    ]
+}

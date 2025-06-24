@@ -29,7 +29,5 @@ fp-info-cache
 *.xml
 *.csv
 
-
-3D/lceda_step_downloader.exe
-
-3D/temp/
+.DS_Store
+Thumbs.db
