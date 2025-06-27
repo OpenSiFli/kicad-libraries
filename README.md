@@ -29,10 +29,10 @@ Official KiCAD symbol, footprint and 3D model libraries for SiFli SoC and module
 
 ## 🔧 Supported Chips
 
-| Part Number | Package  | Symbol | Footprint | 3D Model |
+| Part Number | Package Name  | Symbol | Footprint | 3D Model |
 |-------------|-------------|--------|-----------|----------|
-| SF32LB52XUx | QFN48 | ✅ | ✅ | ✅ |
-| SF32LB52xUx | QFN48 | ✅ | ✅ | ✅ |
+| SF32LB52XUx | QFN68 | ✅ | ✅ | ✅ |
+| SF32LB52xUx | QFN68 | ✅ | ✅ | ✅ |
 
 **Legend:**
 
