@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import logging
+import math
 import re
 from dataclasses import dataclass
 from pathlib import Path
@@ -30,9 +31,11 @@ PIN_TYPE_MAP: Mapping[str, str] = {
 
 LEFT_TYPES = {"input", "power_input"}
 RIGHT_TYPES = {"output", "power_output"}
-PIN_PITCH = 2.54
+PIN_PITCH = 2.54  # 100 mil vertical spacing
 PIN_LENGTH = 2.54
 BODY_HALF_WIDTH = 5.0
+PIN_CLEARANCE = 1.0
+GRID = 1.27  # 50 mil grid for horizontal alignment
 
 
 @dataclass(frozen=True)
@@ -186,11 +189,16 @@ class SymbolGenerator:
         pins = self._collect_pin_specs(series.pads, variant)
         units = self._group_units(pins)
         symbol.unit_count = len(units)
-        symbol.unit_names = {idx + 1: unit_name for idx, (unit_name, _) in enumerate(units)}
+        symbol.unit_names = {idx + 1: unit.name for idx, unit in enumerate(units)}
 
         unit_bounds: list[tuple[int, float]] = []
-        for idx, (_, unit_pins) in enumerate(units, start=1):
-            max_rows, half_width = self._place_pins(symbol, unit=idx, pins=unit_pins)
+        for idx, unit in enumerate(units, start=1):
+            max_rows, half_width = self._place_pins(
+                symbol,
+                unit=idx,
+                pins=unit.pins,
+                pair_mode=unit.pair_mode,
+            )
             unit_bounds.append((max_rows, half_width))
 
         for idx, (rows, half_width) in enumerate(unit_bounds, start=1):
@@ -228,10 +236,16 @@ class SymbolGenerator:
             )
         return specs
 
+    @dataclass
+    class Unit:
+        name: str
+        pins: list[SymbolPinSpec]
+        pair_mode: bool
+
     def _group_units(
         self,
         pins: list[SymbolPinSpec],
-    ) -> list[tuple[str, list[SymbolPinSpec]]]:
+    ) -> list["SymbolGenerator.Unit"]:
         io_groups: dict[str, list[SymbolPinSpec]] = {}
         misc: list[SymbolPinSpec] = []
 
@@ -242,21 +256,21 @@ class SymbolGenerator:
             else:
                 misc.append(spec)
 
-        units: list[tuple[str, list[SymbolPinSpec]]] = []
+        units: list[SymbolGenerator.Unit] = []
         for port in sorted(io_groups):
             entries = self._sort_port_pins(io_groups[port])
             for idx, chunk in enumerate(self._chunks(entries, 64), start=1):
                 label = port if len(entries) <= 64 else f"{port}{idx}"
-                units.append((label, chunk))
+                units.append(self.Unit(label, chunk, True))
 
         if misc:
             sorted_misc = self._sort_misc_pins(misc)
             for idx, chunk in enumerate(self._chunks(sorted_misc, 64), start=1):
                 label = "SYS" if len(misc) <= 64 and idx == 1 else f"SYS{idx}"
-                units.append((label, chunk))
+                units.append(self.Unit(label, chunk, False))
 
         if not units:
-            units.append(("UNIT1", []))
+            units.append(self.Unit("UNIT1", [], False))
         return units
 
     def _sort_port_pins(self, pins: list[SymbolPinSpec]) -> list[SymbolPinSpec]:
@@ -280,7 +294,7 @@ class SymbolGenerator:
 
         return sorted(pins, key=key)
 
-    def _partition_pins(
+    def _partition_by_type(
         self,
         pins: list[SymbolPinSpec],
     ) -> tuple[list[SymbolPinSpec], list[SymbolPinSpec]]:
@@ -303,28 +317,54 @@ class SymbolGenerator:
 
         return left, right
 
+    def _pair_columns(
+        self,
+        pins: list[SymbolPinSpec],
+    ) -> tuple[list[SymbolPinSpec], list[SymbolPinSpec]]:
+        ordered = self._sort_port_pins(pins)
+        right_count = math.ceil(len(ordered) / 2)
+        right = ordered[: right_count]
+        left = list(reversed(ordered[right_count:]))
+        return left, right
+
     def _place_pins(
         self,
         symbol,
         unit: int,
         pins: list[SymbolPinSpec],
+        pair_mode: bool,
     ) -> tuple[int, float]:
-        left, right = self._partition_pins(pins)
+        if pair_mode:
+            left, right = self._pair_columns(pins)
+        else:
+            left, right = self._partition_by_type(pins)
 
-        char_width = 0.6
-        label_margin = 1.0
+        char_width = 0.75
+        label_margin = 1.5
         left_label_len = max((len(spec.name) for spec in left), default=0)
         right_label_len = max((len(spec.name) for spec in right), default=0)
-        label_width = max(left_label_len, right_label_len) * char_width + label_margin
-        body_half = max(BODY_HALF_WIDTH, label_width)
-        pin_offset = body_half + PIN_LENGTH / 2 + 0.5
+        left_extra = left_label_len * char_width + label_margin
+        right_extra = right_label_len * char_width + label_margin
+        base_half = max(BODY_HALF_WIDTH, PIN_PITCH)
+        left_offset = base_half + PIN_CLEARANCE + PIN_LENGTH / 2 + left_extra
+        right_offset = base_half + PIN_CLEARANCE + PIN_LENGTH / 2 + right_extra
+        left_offset = self._snap(left_offset)
+        right_offset = self._snap(right_offset)
+        body_half = max(
+            base_half,
+            left_offset - PIN_CLEARANCE - PIN_LENGTH / 2,
+            right_offset - PIN_CLEARANCE - PIN_LENGTH / 2,
+        )
+        body_half = self._snap(body_half)
+
+        max_rows = max(len(left), len(right), 1)
+        top_y = (max_rows - 1) * PIN_PITCH / 2
 
         def place(column: list[SymbolPinSpec], x: float, rotation: int) -> None:
             if not column:
                 return
-            offset = (len(column) - 1) / 2
             for index, spec in enumerate(column):
-                posy = (offset - index) * PIN_PITCH
+                posy = top_y - index * PIN_PITCH
                 pin = self.Pin(
                     name=spec.name,
                     number=spec.number,
@@ -339,9 +379,9 @@ class SymbolGenerator:
                     pin.altfuncs.append(self.AltFunction(mux.function, pin.etype))
                 symbol.pins.append(pin)
 
-        place(left, x=-pin_offset, rotation=0)
-        place(right, x=pin_offset, rotation=180)
-        return max(len(left), len(right), 1), body_half
+        place(left, x=-left_offset, rotation=0)
+        place(right, x=right_offset, rotation=180)
+        return max_rows, body_half
 
     def _extract_datasheet(self, docs: Sequence[Mapping[str, object]]) -> str:
         for entry in docs:
@@ -372,3 +412,8 @@ class SymbolGenerator:
         if chunk:
             chunks.append(chunk)
         return chunks
+    @staticmethod
+    def _snap(value: float, grid: float = GRID) -> float:
+        if grid <= 0:
+            return value
+        return round(value / grid) * grid
