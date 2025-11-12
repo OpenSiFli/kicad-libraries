@@ -267,7 +267,7 @@ class SymbolGenerator:
             sorted_misc = self._sort_misc_pins(misc)
             for idx, chunk in enumerate(self._chunks(sorted_misc, 64), start=1):
                 label = "SYS" if len(misc) <= 64 and idx == 1 else f"SYS{idx}"
-                units.append(self.Unit(label, chunk, False))
+                units.insert(0, self.Unit(label, chunk, False))
 
         if not units:
             units.append(self.Unit("UNIT1", [], False))
