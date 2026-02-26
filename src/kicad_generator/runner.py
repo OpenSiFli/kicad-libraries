@@ -29,17 +29,20 @@ def apply_variant_filter(series: Sequence[ChipSeries], allowed: Sequence[str]) -
 
 
 def run(options: GeneratorOptions) -> int:
-    repo = SiliconSchemaRepository(options.schema_dir)
-    series = repo.load_series(options.series_filter or None)
+    try:
+        repo = SiliconSchemaRepository(options.schema_dir)
+        series = repo.load_series(options.series_filter or None)
+    except FileNotFoundError as exc:
+        LOGGER.error("%s", exc)
+        return 2
     series = apply_variant_filter(series, options.variant_filter)
 
     if not series:
         LOGGER.warning("No series matched the provided filters.")
         return 1
 
-    footprint_library = FootprintLibrary.from_directory(options.footprint_data_dir)
-
     if options.targets.footprints:
+        footprint_library = FootprintLibrary.from_directory(options.footprint_data_dir)
         repo_root = options.kicad_footprint_root
         if not repo_root or not repo_root.exists():
             LOGGER.error(

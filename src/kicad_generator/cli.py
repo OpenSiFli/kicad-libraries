@@ -20,7 +20,10 @@ def build_parser() -> argparse.ArgumentParser:
         "--schema-dir",
         type=Path,
         required=True,
-        help="Path to the SiliconSchema checkout containing chips/<series>/series.yaml files.",
+        help=(
+            "Path to the SiliconSchema checkout containing out/<chip>/series.yaml build artifacts "
+            "(generated via 'uv run build-schema')."
+        ),
     )
     parser.add_argument(
         "--footprint-data-dir",

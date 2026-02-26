@@ -10,7 +10,7 @@ import yaml
 @dataclass(frozen=True)
 class PinmuxEntry:
     function: str
-    select: int
+    select: int | None = None
     description: str | None = None
     notes: str | None = None
 
@@ -58,25 +58,49 @@ class SiliconSchemaRepository:
     def __init__(self, root: Path) -> None:
         self.root = root
         self.chips_dir = root / "chips"
+        self.out_dir = root / "out"
         if not self.chips_dir.is_dir():
-            msg = f"chips directory not found under {root}"
+            msg = f"SiliconSchema chips directory not found under {root}"
             raise FileNotFoundError(msg)
 
     def iter_series_paths(self) -> Iterator[Tuple[str, Path]]:
-        for entry in sorted(self.chips_dir.iterdir()):
-            if not entry.is_dir():
-                continue
-            series_file = entry / "series.yaml"
-            if series_file.is_file():
-                yield entry.name, series_file
+        yielded = False
+
+        # SiliconSchema now writes the merged build artifacts into out/<chip>/series.yaml.
+        if self.out_dir.is_dir():
+            for entry in sorted(self.out_dir.iterdir()):
+                if not entry.is_dir():
+                    continue
+                series_file = entry / "series.yaml"
+                if series_file.is_file():
+                    yielded = True
+                    yield entry.name, series_file
+
+        # Backward compatibility: older checkouts stored series.yaml alongside chip.yaml.
+        if not yielded and self.chips_dir.is_dir():
+            for entry in sorted(self.chips_dir.iterdir()):
+                if not entry.is_dir():
+                    continue
+                series_file = entry / "series.yaml"
+                if series_file.is_file():
+                    yield entry.name, series_file
 
     def load_series(self, allowed: Sequence[str] | None = None) -> List[ChipSeries]:
         allowed_set = {item.strip() for item in allowed or [] if item.strip()}
         series_list: list[ChipSeries] = []
+        found_any = False
         for model_id, path in self.iter_series_paths():
+            found_any = True
             if allowed_set and model_id not in allowed_set:
                 continue
             series_list.append(self._load_series_file(path))
+        if not found_any:
+            msg = (
+                "No series.yaml build artifacts found under SiliconSchema. Expected "
+                f"'{self.out_dir}/<chip>/series.yaml'. Run 'uv run build-schema' in the "
+                "SiliconSchema repository to generate them."
+            )
+            raise FileNotFoundError(msg)
         return series_list
 
     def _load_series_file(self, path: Path) -> ChipSeries:
@@ -105,15 +129,7 @@ class SiliconSchemaRepository:
     def _parse_pads(self, pads: Mapping[str, Mapping[str, Any]]) -> Mapping[str, ChipPad]:
         parsed: dict[str, ChipPad] = {}
         for name, payload in pads.items():
-            pinmux_entries = tuple(
-                PinmuxEntry(
-                    function=item["function"],
-                    select=int(item["select"]),
-                    description=item.get("description"),
-                    notes=item.get("notes"),
-                )
-                for item in payload.get("pinmux", []) or []
-            )
+            pinmux_entries = self._parse_pinmux_entries(payload)
             parsed[name] = ChipPad(
                 name=name,
                 type=payload["type"],
@@ -122,6 +138,60 @@ class SiliconSchemaRepository:
                 pinmux=pinmux_entries,
             )
         return parsed
+
+    def _parse_pinmux_entries(self, payload: Mapping[str, Any]) -> Tuple[PinmuxEntry, ...]:
+        raw_pinmux = payload.get("pinmux")
+        if raw_pinmux:
+            entries: list[PinmuxEntry] = []
+            if not isinstance(raw_pinmux, list):
+                msg = f"Expected pad 'pinmux' to be a list, got {type(raw_pinmux)!r}"
+                raise TypeError(msg)
+            for item in raw_pinmux:
+                if not isinstance(item, Mapping):
+                    msg = f"Expected pinmux entry to be a mapping, got {type(item)!r}"
+                    raise TypeError(msg)
+                entries.append(
+                    PinmuxEntry(
+                        function=str(item["function"]),
+                        select=int(item["select"]),
+                        description=item.get("description"),
+                        notes=item.get("notes"),
+                    )
+                )
+            return tuple(entries)
+
+        # Newer series.yaml files use `functions: [GPIO_A0, I2C1_SCL, ...]`.
+        raw_functions = payload.get("functions")
+        if not raw_functions:
+            return ()
+
+        if not isinstance(raw_functions, list):
+            msg = f"Expected pad 'functions' to be a list, got {type(raw_functions)!r}"
+            raise TypeError(msg)
+
+        entries = []
+        for item in raw_functions:
+            if isinstance(item, str):
+                entries.append(PinmuxEntry(function=item))
+                continue
+            if isinstance(item, Mapping):
+                # Be liberal in what we accept: allow future extensions where functions
+                # carry metadata.
+                function = item.get("function") or item.get("name")
+                if not function:
+                    msg = f"Pad function entry is missing a function name: {item!r}"
+                    raise ValueError(msg)
+                entries.append(
+                    PinmuxEntry(
+                        function=str(function),
+                        description=item.get("description"),
+                        notes=item.get("notes"),
+                    )
+                )
+                continue
+            msg = f"Unsupported pad function entry type: {type(item)!r}"
+            raise TypeError(msg)
+        return tuple(entries)
 
     def _parse_variants(
         self,
