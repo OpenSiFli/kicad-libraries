@@ -4,7 +4,7 @@
 
 入口函数 `main()`。解析参数后构造 `GeneratorOptions`，调用 `runner.run()`。
 
-`--schema-dir` 的父目录用于推断子模块路径（kicad-footprint-generator、kicad-library-utils）。
+CLI 默认按仓库固定布局自动定位子模块路径（`./SiliconSchema`、`./kicad-footprint-generator`、`./kicad-library-utils`）。
 
 ## runner.py — 编排逻辑
 
@@ -75,7 +75,7 @@ SiliconSchema pad type → KiCad pin electrical type，例：`bidirectional` →
 
 ## footprint_loader.py — 封装参数
 
-从 `<schema-dir>/footprint/*.yml` 加载封装定义。每个 YAML 文件包含：
+从 `./SiliconSchema/footprint/*.yml`（若不存在则 `./footprint/*.yml`）加载封装定义。每个 YAML 文件包含：
 
 - `defaults`：共享默认参数
 - `packages[]`：具体封装，参数与 defaults 合并
