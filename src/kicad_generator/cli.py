@@ -10,6 +10,14 @@ from .runner import run
 
 
 def _is_workspace_root(path: Path) -> bool:
+    """Check whether the given path looks like the repository workspace root.
+
+    Args:
+        path: Candidate directory.
+
+    Returns:
+        True if the directory contains the expected layout (src package plus submodules).
+    """
     return (
         (path / "pyproject.toml").is_file()
         and (path / "src" / "kicad_generator").is_dir()
@@ -20,6 +28,17 @@ def _is_workspace_root(path: Path) -> bool:
 
 
 def _resolve_workspace_root() -> Path:
+    """Locate the workspace root directory.
+
+    The generator is expected to run from a repository checkout that contains
+    the upstream repositories as submodules.
+
+    Returns:
+        The resolved workspace root directory.
+
+    Raises:
+        FileNotFoundError: If the workspace root cannot be located.
+    """
     # Prefer the repository layout, but allow running from subdirectories.
     candidates = [Path(__file__).resolve(), Path.cwd().resolve()]
     for start in candidates:
@@ -44,8 +63,9 @@ def build_parser() -> argparse.ArgumentParser:
         "--footprint-data-dir",
         type=Path,
         help=(
-            "Directory that contains footprint parameter YAML files "
-            "(defaults to ./SiliconSchema/footprint, falling back to ./footprint)."
+            "Optional directory that contains footprint parameter YAML files. "
+            "If omitted, defaults to ./SiliconSchema/footprint or ./footprint when present; "
+            "otherwise, the upstream kicad-footprint-generator package specs are used."
         ),
     )
     parser.add_argument(
@@ -128,10 +148,10 @@ def options_from_args(args: argparse.Namespace) -> GeneratorOptions:
     if args.footprint_data_dir:
         footprint_data_dir = args.footprint_data_dir.expanduser().resolve()
     else:
-        # SiliconSchema might optionally ship generator-specific footprint parameters;
-        # otherwise keep them in this repository.
-        candidate = schema_dir / "footprint"
-        footprint_data_dir = candidate if candidate.is_dir() else workspace_root / "footprint"
+        # Optional local overrides. If absent, we can still generate footprints using
+        # the upstream kicad-footprint-generator spec data.
+        candidates = [schema_dir / "footprint", workspace_root / "footprint"]
+        footprint_data_dir = next((path for path in candidates if path.is_dir()), None)
 
     output_dir = args.output_dir.expanduser().resolve()
 

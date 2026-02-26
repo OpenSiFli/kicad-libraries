@@ -42,7 +42,16 @@ def run(options: GeneratorOptions) -> int:
         return 1
 
     if options.targets.footprints:
-        footprint_library = FootprintLibrary.from_directory(options.footprint_data_dir)
+        try:
+            footprint_library = (
+                FootprintLibrary.from_directory(options.footprint_data_dir)
+                if options.footprint_data_dir is not None
+                else FootprintLibrary({})
+            )
+        except FileNotFoundError as exc:
+            LOGGER.error("%s", exc)
+            return 2
+
         repo_root = options.kicad_footprint_root
         if not repo_root or not repo_root.exists():
             LOGGER.error(

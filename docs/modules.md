@@ -75,7 +75,7 @@ SiliconSchema pad type → KiCad pin electrical type，例：`bidirectional` →
 
 ## footprint_loader.py — 封装参数
 
-从 `./SiliconSchema/footprint/*.yml`（若不存在则 `./footprint/*.yml`）加载封装定义。每个 YAML 文件包含：
+若存在，优先从 `./SiliconSchema/footprint/*.yml`（否则 `./footprint/*.yml`）加载封装定义；若两者都不存在，则封装生成回退到 `kicad-footprint-generator/data/` 内置的 package specs。每个 YAML 文件包含：
 
 - `defaults`：共享默认参数
 - `packages[]`：具体封装，参数与 defaults 合并

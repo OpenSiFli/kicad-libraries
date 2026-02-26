@@ -32,7 +32,7 @@ class GeneratorOptions:
     """Runtime configuration derived from the CLI."""
 
     schema_dir: Path
-    footprint_data_dir: Path
+    footprint_data_dir: Path | None
     output_dir: Path
     targets: GeneratorTargets
     series_filter: Tuple[str, ...] = ()

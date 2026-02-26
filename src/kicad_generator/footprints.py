@@ -1,13 +1,10 @@
 from __future__ import annotations
 
-import copy
 import json
 import logging
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Iterable, Mapping, Sequence
-
-import yaml
+from typing import Any, Iterable, Mapping, Sequence
 
 from .footprint_loader import FootprintLibrary, FootprintPackageDefinition
 from .schema_loader import ChipSeries
@@ -45,62 +42,135 @@ class FootprintGenerationResult:
 
 
 class NoLeadGeneratorAdapter:
-    """Thin wrapper around the upstream kicad-footprint-generator no-lead generator."""
+    """Wrapper around the upstream kicad-footprint-generator no-lead generator."""
 
-    def __init__(self, repo_root: Path, density: str = "N") -> None:
-        ensure_footprint_repo_on_sys_path(repo_root)
-        from scripts.Packages.no_lead import ipc_noLead_generator  # type: ignore
-        from scripts.tools.global_config_files import global_config as GC  # type: ignore
-        from kilibs.ipc_tools import ipc_rules  # type: ignore
-
+    def __init__(self, repo_root: Path) -> None:
         self.repo_root = repo_root
-        self.generator_cls = ipc_noLead_generator.NoLeadGenerator
-        self.global_config = GC.DefaultGlobalConfig()
-        config_path = repo_root / "scripts/Packages/package_config_KLCv3.yaml"
-        with config_path.open("r", encoding="utf-8") as handle:
-            self.configuration = yaml.safe_load(handle)
-        self.ipc_defs = ipc_rules.IpcRules.from_file("ipc_7351b")
-        self.density = density
+        ensure_footprint_repo_on_sys_path(repo_root)
+        self._spec_index: dict[str, tuple[Mapping[str, Any], str]] | None = None
+        self._output_dir: Path | None = None
+        self._create_footprints = None
+        self._NoLeadSpec = None
+        self._spec_generator = None
+
+    def _ensure_upstream_loaded(self, output_dir_footprints: Path) -> None:
+        """Initialise the upstream generator environment.
+
+        The upstream package generator relies on a global argparse Namespace
+        (CLI_ARGS) for configuration. We set the minimal fields required for
+        footprint generation and then import the generator modules.
+
+        Args:
+            output_dir_footprints: Root directory where `.kicad_mod` files will be written.
+        """
+        if self._create_footprints is not None and self._NoLeadSpec is not None:
+            # Still update the output directory if it changes between calls.
+            if self._output_dir != output_dir_footprints:
+                from argparse import Namespace
+
+                from generators.tools import cli_args  # type: ignore
+
+                cli_args.init(
+                    Namespace(
+                        dry_run=False,
+                        separate_outputs=False,
+                        output_dir_footprints=output_dir_footprints,
+                        package_config=str(
+                            self.repo_root
+                            / "src"
+                            / "generators"
+                            / "package"
+                            / "package_config_KLCv3.yaml"
+                        ),
+                    )
+                )
+                self._output_dir = output_dir_footprints
+            return
+
+        from argparse import Namespace
+
+        from generators.tools import cli_args  # type: ignore
+
+        cli_args.init(
+            Namespace(
+                dry_run=False,
+                separate_outputs=False,
+                output_dir_footprints=output_dir_footprints,
+                package_config=str(
+                    self.repo_root
+                    / "src"
+                    / "generators"
+                    / "package"
+                    / "package_config_KLCv3.yaml"
+                ),
+            )
+        )
+        self._output_dir = output_dir_footprints
+
+        # Imports below depend on CLI_ARGS.package_config being set.
+        from generators.package.no_lead.footprint import create_footprints  # type: ignore
+        from generators.package.no_lead.spec import NoLeadSpec  # type: ignore
+        from generators.tools.spec import spec_generator  # type: ignore
+
+        self._create_footprints = create_footprints
+        self._NoLeadSpec = NoLeadSpec
+        self._spec_generator = spec_generator
+
+    def _load_builtin_specs(self) -> Mapping[str, tuple[Mapping[str, Any], str]]:
+        if self._spec_index is not None:
+            return self._spec_index
+        if self._spec_generator is None:
+            msg = "Upstream spec generator is not available yet."
+            raise RuntimeError(msg)
+
+        specs: dict[str, tuple[Mapping[str, Any], str]] = {}
+        for file_name, entries in self._spec_generator.get_spec_dicts("package/no_lead"):
+            for spec_id, spec in entries.items():
+                specs[spec_id] = (spec, file_name)
+        self._spec_index = specs
+        return specs
 
     def generate(
         self,
         output_dir: Path,
         package_name: str,
-        parameters: Mapping[str, object],
-        header_info: Mapping[str, object] | None,
+        definition: FootprintPackageDefinition | None = None,
     ) -> list[Path]:
-        header = dict(header_info or {})
-        library_name = str(header.get("library") or "Generated")
+        self._ensure_upstream_loaded(output_dir)
+        assert self._NoLeadSpec is not None
+        assert self._create_footprints is not None
 
-        generator_cls = self.generator_cls
+        if definition is not None:
+            spec: dict[str, Any] = dict(definition.parameters)
+            header = definition.metadata.get("file_header") or {}
+            if isinstance(header, Mapping):
+                library = header.get("library")
+                if library:
+                    spec.setdefault("library", str(library))
+            file_name = str(definition.source_file)
+        else:
+            specs = self._load_builtin_specs()
+            match = specs.get(package_name)
+            if match is None:
+                return []
+            spec, file_name = match
 
-        class TrackingGenerator(generator_cls):  # type: ignore
-            def __init__(self, *args, **kwargs):
-                self._generated: list[Path] = []
-                super().__init__(*args, **kwargs)
+        spec_obj = self._NoLeadSpec(package_name, spec, file_name)
+        generated_count = int(self._create_footprints(spec_obj, "package/no_lead"))
+        if generated_count <= 0:
+            return []
 
-            def write_footprint(self, kicad_mod, library_name: str):  # type: ignore
-                super().write_footprint(kicad_mod, library_name)
-                base = self.output_path or output_dir
-                library_dir = Path(base) / f"{library_name}.pretty"
-                self._generated.append(library_dir / f"{kicad_mod.name}.kicad_mod")
+        library_dir_name = str(spec_obj.lib_name)
+        if not library_dir_name.endswith(".pretty"):
+            library_dir_name = f"{library_dir_name}.pretty"
+        library_dir = output_dir / library_dir_name
 
-        generator = TrackingGenerator(
-            output_dir=output_dir,
-            global_config=self.global_config,
-            configuration=copy.deepcopy(self.configuration),
-            ipc_defs=self.ipc_defs,
-        )
+        expected_names = [str(spec_obj.fp_name_without_vias)]
+        if spec_obj.has_ep and "thermal_vias" in spec_obj.spec:
+            expected_names.append(str(spec_obj.fp_name_with_vias))
 
-        header = dict(header_info or {})
-        generator.generateFootprint(
-            dict(parameters),
-            pkg_id=package_name,
-            header_info=header,
-        )
-
-        generated = getattr(generator, "_generated", [])
-        return sorted(Path(path) for path in generated)
+        paths = [library_dir / f"{name}.kicad_mod" for name in expected_names]
+        return [path for path in paths if path.is_file()]
 
 
 class FootprintGenerator:
@@ -130,27 +200,27 @@ class FootprintGenerator:
         missing: list[str] = []
 
         for package_name in required_packages:
-            definition = library.get(package_name)
-            if not definition:
-                LOGGER.error("Package %s missing from footprint library.", package_name)
-                missing.append(package_name)
-                continue
-
-            header = definition.metadata.get("file_header") or {}
             generated_paths = self.adapter.generate(
                 output_dir=footprints_root,
                 package_name=package_name,
-                parameters=definition.parameters,
-                header_info=header,
+                definition=library.get(package_name),
             )
 
             if not generated_paths:
-                LOGGER.error("Footprint generator produced no files for %s", package_name)
+                LOGGER.error(
+                    "No footprint spec found for %s (not in local overrides, not in upstream kicad-footprint-generator).",
+                    package_name,
+                )
                 missing.append(package_name)
                 continue
 
-            library_name = str(header.get("library") or "Generated")
             for file_path in generated_paths:
+                library_dir = file_path.parent.name
+                library_name = (
+                    library_dir[: -len(".pretty")]
+                    if library_dir.endswith(".pretty")
+                    else library_dir
+                )
                 artifact = FootprintArtifact(
                     name=file_path.stem,
                     namespace=self.namespace,
