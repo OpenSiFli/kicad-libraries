@@ -10,7 +10,6 @@ import yaml
 @dataclass(frozen=True)
 class PinmuxEntry:
     function: str
-    select: int | None = None
     description: str | None = None
     notes: str | None = None
 
@@ -141,26 +140,13 @@ class SiliconSchemaRepository:
 
     def _parse_pinmux_entries(self, payload: Mapping[str, Any]) -> Tuple[PinmuxEntry, ...]:
         raw_pinmux = payload.get("pinmux")
-        if raw_pinmux:
-            entries: list[PinmuxEntry] = []
-            if not isinstance(raw_pinmux, list):
-                msg = f"Expected pad 'pinmux' to be a list, got {type(raw_pinmux)!r}"
-                raise TypeError(msg)
-            for item in raw_pinmux:
-                if not isinstance(item, Mapping):
-                    msg = f"Expected pinmux entry to be a mapping, got {type(item)!r}"
-                    raise TypeError(msg)
-                entries.append(
-                    PinmuxEntry(
-                        function=str(item["function"]),
-                        select=int(item["select"]),
-                        description=item.get("description"),
-                        notes=item.get("notes"),
-                    )
-                )
-            return tuple(entries)
+        if raw_pinmux is not None:
+            msg = (
+                "Legacy pad field 'pinmux' is no longer supported. "
+                "Please use 'functions' in SiliconSchema out/<chip>/series.yaml."
+            )
+            raise ValueError(msg)
 
-        # Newer series.yaml files use `functions: [GPIO_A0, I2C1_SCL, ...]`.
         raw_functions = payload.get("functions")
         if not raw_functions:
             return ()
