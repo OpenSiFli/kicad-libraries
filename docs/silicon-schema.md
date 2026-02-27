@@ -47,7 +47,7 @@ SiliconSchema/
 
 | YAML 字段 | Python 类 | 说明 |
 | --------- | --------- | ---- |
-| 顶层 | `ChipSeries` | model_id, lifecycle, pads, variants |
+| 顶层 | `ChipSeries` | model_id（取 `out/<series>/` 目录名）, lifecycle, pads, variants |
 | `pads.*` | `ChipPad` | name, type, pinmux |
 | `pads.*.functions[]` | `PinmuxEntry` | function, description |
 | `variants[]` | `ChipVariant` | part_number, package, pins, pin_group_id |

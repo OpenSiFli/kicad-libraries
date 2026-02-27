@@ -107,7 +107,11 @@ class SiliconSchemaRepository:
             raw = yaml.safe_load(handle)
 
         schema_version = str(raw["schema_version"])
-        model_id = str(raw["model_id"])
+        # SiliconSchema uses out/<chip>/series.yaml where <chip> is the stable identifier
+        # used across repo layout, templates, and tooling. Some YAML files also contain a
+        # `model_id` that may differ in formatting (e.g. "SF32LB52X" vs "SF32LB52_X"),
+        # so we use the directory name as the canonical series id.
+        model_id = path.parent.name
         lifecycle = str(raw["lifecycle"])
         docs = tuple(raw.get("docs", ()))
 
