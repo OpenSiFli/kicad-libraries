@@ -28,7 +28,7 @@ class FootprintArtifact:
 
     @property
     def qualified_name(self) -> str:
-        return f"{self.library}:{self.name}"
+        return f"PCM_{self.library}:{self.name}"
 
 
 @dataclass(frozen=True)

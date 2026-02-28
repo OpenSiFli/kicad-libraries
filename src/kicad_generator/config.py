@@ -38,7 +38,7 @@ class GeneratorOptions:
     targets: GeneratorTargets
     series_filter: Tuple[str, ...] = ()
     variant_filter: Tuple[str, ...] = ()
-    footprint_namespace: str = "PCM_SiFli_MOD"
+    footprint_namespace: str = "SiFli_MOD"
     kicad_footprint_root: Path | None = None
     kicad_library_utils_root: Path | None = None
 
