@@ -37,6 +37,17 @@ PIN_LENGTH = 2.54
 BODY_HALF_WIDTH = 5.0
 PIN_CLEARANCE = 1.0
 GRID = 1.27  # 50 mil grid for horizontal alignment
+SYS_SPLIT_MAX_PINS = 40
+SYS_SUBSYSTEM_PRIORITY: Tuple[str, ...] = (
+    "power",
+    "analog",
+    "rf",
+    "crystal",
+    "audio",
+    "mipi",
+    "usb",
+    "strapping",
+)
 
 
 @dataclass(frozen=True)
@@ -52,6 +63,7 @@ class SymbolPinSpec:
     electrical_type: str
     pinmux: Tuple[PinmuxEntry, ...]
     pad_name: str
+    subsystem: str | None
 
 
 @dataclass
@@ -523,6 +535,7 @@ class SymbolGenerator:
             electrical = PIN_TYPE_MAP.get(pad_type, "passive")
             pin_name = pin.description or "/".join(pin.pads) or pad_name
             pinmux = pad.pinmux if pad else ()
+            subsystem = pad.subsystem if pad else None
             specs.append(
                 SymbolPinSpec(
                     number=pin.number,
@@ -531,6 +544,7 @@ class SymbolGenerator:
                     electrical_type=electrical,
                     pinmux=pinmux,
                     pad_name=pad_name,
+                    subsystem=subsystem,
                 )
             )
         return specs
@@ -555,21 +569,97 @@ class SymbolGenerator:
             else:
                 misc.append(spec)
 
-        units: list[SymbolGenerator.Unit] = []
+        sys_units = self._group_sys_units(misc)
+
+        io_units: list[SymbolGenerator.Unit] = []
         for port in sorted(io_groups):
             entries = self._sort_port_pins(io_groups[port])
             for idx, chunk in enumerate(self._chunks(entries, 64), start=1):
                 label = port if len(entries) <= 64 else f"{port}{idx}"
-                units.append(self.Unit(label, chunk, True))
+                io_units.append(self.Unit(label, chunk, True))
 
-        if misc:
-            sorted_misc = self._sort_misc_pins(misc)
-            for idx, chunk in enumerate(self._chunks(sorted_misc, 64), start=1):
-                label = "SYS" if len(misc) <= 64 and idx == 1 else f"SYS{idx}"
-                units.insert(0, self.Unit(label, chunk, False))
-
+        units: list[SymbolGenerator.Unit] = [*sys_units, *io_units]
         if not units:
             units.append(self.Unit("UNIT1", [], False))
+        return units
+
+    def _group_sys_units(self, misc: list[SymbolPinSpec]) -> list["SymbolGenerator.Unit"]:
+        """Group non-port pins into SYS units, splitting large sets by subsystem.
+
+        Args:
+            misc: Pins that do not belong to a GPIO port prefix (PA/PB/...).
+
+        Returns:
+            A list of SYS units in display order (highest-priority subsystems first).
+        """
+
+        if not misc:
+            return []
+
+        sorted_misc = self._sort_misc_pins(misc)
+        if len(sorted_misc) <= SYS_SPLIT_MAX_PINS:
+            return [self.Unit("SYS", sorted_misc, False)]
+
+        # If no subsystem classification is available, fall back to a simple size split.
+        if all(spec.subsystem is None for spec in misc):
+            units: list[SymbolGenerator.Unit] = []
+            for idx, chunk in enumerate(self._chunks(sorted_misc, SYS_SPLIT_MAX_PINS), start=1):
+                units.append(self.Unit(f"SYS{idx}", chunk, False))
+            return units
+
+        groups: dict[str | None, list[SymbolPinSpec]] = {}
+        for spec in misc:
+            groups.setdefault(spec.subsystem, []).append(spec)
+
+        for key, items in list(groups.items()):
+            groups[key] = self._sort_misc_pins(items)
+
+        ordered: list[str | None] = [key for key in SYS_SUBSYSTEM_PRIORITY if key in groups]
+        ordered.extend(sorted(key for key in groups if key is not None and key not in SYS_SUBSYSTEM_PRIORITY))
+        if None in groups:
+            ordered.append(None)
+
+        bins: list[list[str | None]] = []
+        current: list[str | None] = []
+        current_count = 0
+
+        def flush() -> None:
+            nonlocal current, current_count
+            if not current:
+                return
+            bins.append(current)
+            current = []
+            current_count = 0
+
+        for key in ordered:
+            count = len(groups[key])
+            if count > SYS_SPLIT_MAX_PINS:
+                flush()
+                bins.append([key])
+                continue
+
+            if not current:
+                current = [key]
+                current_count = count
+                continue
+
+            if current_count + count <= SYS_SPLIT_MAX_PINS:
+                current.append(key)
+                current_count += count
+                continue
+
+            flush()
+            current = [key]
+            current_count = count
+
+        flush()
+
+        units: list[SymbolGenerator.Unit] = []
+        for idx, bin_keys in enumerate(bins, start=1):
+            unit_pins: list[SymbolPinSpec] = []
+            for key in bin_keys:
+                unit_pins.extend(groups[key])
+            units.append(self.Unit(f"SYS{idx}", unit_pins, False))
         return units
 
     def _sort_port_pins(self, pins: list[SymbolPinSpec]) -> list[SymbolPinSpec]:
