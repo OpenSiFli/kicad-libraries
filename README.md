@@ -1,51 +1,75 @@
-# SiFli KiCAD Generator
+# SiFli KiCAD Libraries
 
 English | [中文](README-zh.md)
 
-用于从 SiliconSchema 构建产物自动生成 SiFli SoC/Module 的 KiCad symbols 与 footprints，并通过 GitHub Release 发布可直接在 KiCad PCM 中安装的 ZIP 包。
+Official KiCAD symbol, footprint and 3D model libraries for SiFli SoC and modules.
 
-## 安装与使用（用户侧）
+## 📦 Installation
 
-1. 从 [Releases](https://github.com/OpenSiFli/kicad-libraries/releases) 下载最新 `sifli-kicad-libraries-<tag>.zip`。
-2. 打开 KiCad → **Tools** → **Package and Content Manager**。
-3. 选择 **Install from file...** 并选中该 ZIP。
+### Method 1: KiCAD Package and Content Manager (Not yet supported)
 
-> 用户安装入口保持为 Release ZIP + PCM Install from file。
+1. Open KiCAD
+![PCM-home](./docs/image-en/PCM-home.png)
+2. Go to **Tools** → **Package and Content Manager**
+3. Search for "SiFli Library"
+4. Click **Install**
 
-## 开发依赖
+### Method 2: Manual Installation
 
-- Python >= 3.13
-- [uv](https://docs.astral.sh/uv/)
-- 已初始化 submodules（`SiliconSchema`、`kicad-footprint-generator`、`kicad-library-utils`）
+1. Download the latest release from [Releases](https://github.com/OpenSiFli/kicad-libraries/releases)
+2. Go to **Tools** → **Package and Content Manager**
+![PCM-home](./docs/image-en/PCM-home.png)
+3. The PCM window will display a list of available plugins, libraries, and color themes. You can browse through the categories or use the search bar to find a specific package.
+![PCM](./docs/image-en/PCM.png)
+4. To install the library manually using the ZIP file from the latest release, you need to select the file from "Install from file..."
+![PCM-install](./docs/image-en/install-from-file.png)
+5. Once the package is installed, you will see the SiFli Library listed on the Installed tab.
+![PCM-SiFli](./docs/image-en/SiFli.png)
+6. Now you are ready to use the library. Note that the library will be listed as PCM_SiFli in the Symbol and Footprint.
 
-## 本地生成流程
+## 🔧 Supported Chips
 
-```bash
-uv sync --frozen
-uv run --directory SiliconSchema build-schema
-uv run kicad-generator --output-dir build
-```
+| Part Number | Package Name  | Symbol | Footprint | 3D Model |
+|-------------|-------------|--------|-----------|----------|
+| SF32LB52XUx | QFN68 | ✅ | ✅ | ✅ |
+| SF32LB52xUx | QFN68 | ✅ | ✅ | ✅ |
 
-关键顺序：**先构建 SiliconSchema，再运行生成器**。
+**Legend:**
 
-## 自动发布流程（Tag 驱动）
+- ✅ Available
+- ⚠️ Coming Soon
+- ❌ Not Available
 
-`/.github/workflows/release.yml` 在 tag push 时自动执行：
+## 📡 Supported Modules
 
-1. `actions/checkout` + `submodules: recursive`
-2. 安装 `uv`
-3. `uv sync --frozen`
-4. `uv run --directory SiliconSchema build-schema`
-5. `uv run kicad-generator --output-dir build`
-6. 将生成结果整理为发布结构（`symbols/`、`footprints/`、`resources/`、`metadata.json`）
-7. `uv run scripts/build_release.py --source-dir release-staging --tag <tag>`
-8. 通过 `ncipollo/release-action` 上传 ZIP 和 `metadata-upstream.json`
+| Part Number | Symbol | Footprint | 3D Model |
+|-------------|--------|-----------|----------|
+| SF32LB52-MOD-1 |  ✅ | ✅ | ❌ |
 
-## 贡献方式
+**Legend:**
 
-推荐贡献入口：
+- ✅ Available
+- ⚠️ Coming Soon
+- ❌ Not Available
 
-- schema/module/template 变更（`SiliconSchema` / `modules` / `templates`）
-- 生成器逻辑变更（`src/kicad_generator`）
+## 📚 Documentation
 
-发布产物不再以手工维护为主，而是由 CI 自动生成并随 tag 发布。
+- [SiFli Hardware Design Guidelines](https://wiki.sifli.com/hardware/index.html)
+- [SiFli Official Website](https://www.sifli.com/)
+- [Maintainer Guide](docs/maintainers.md)
+
+## 🤝 Contributing
+
+Contributions are welcome! Please feel free to submit a Pull Request.
+
+## 📄 License
+
+This library is licensed under [CC-BY-SA-4.0](LICENSE).
+
+## 📞 Support
+
+For technical support and questions:
+
+- Visit [SiFli Wiki](https://wiki.sifli.com/)
+- Create an issue in this repository
+- Contact: [GitHub Issues](https://github.com/OpenSiFli/kicad-libraries/issues)

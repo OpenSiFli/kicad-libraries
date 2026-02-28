@@ -2,50 +2,74 @@
 
 [English](README.md) | 中文
 
-用于从 SiliconSchema 构建产物自动生成 SiFli SoC/Module 的 KiCad symbols 与 footprints，并通过 GitHub Release 发布可直接在 KiCad PCM 中安装的 ZIP 包。
+SiFli SoC 和模组的官方 KiCAD 符号、封装和 3D 模型库。
 
-## 📦 安装方法（用户侧）
+## 📦 安装方法
 
-1. 从 [Releases](https://github.com/OpenSiFli/kicad-libraries/releases) 下载最新 `sifli-kicad-libraries-<tag>.zip`。
-2. 打开 KiCad → **工具** → **拓展内容管理器**。
-3. 选择 **从文件安装...** 并选中 ZIP。
+### 方法一：KiCAD 拓展内容管理器（暂不支持）
 
-> 用户安装入口保持为 Release ZIP + PCM Install from file。
+1. 打开 KiCAD
+![PCM-home](./docs/image-cn/PCM-home.png)
+2. 转到 **工具** → **拓展内容管理器**
+3. 搜索 "SiFli Library"
+4. 点击 **安装**
 
-## 🔧 开发环境
+### 方法二：手动安装
 
-- Python >= 3.13
-- `uv`
-- 已拉取 submodule：`SiliconSchema`、`kicad-footprint-generator`、`kicad-library-utils`
+1. 从 [Releases](https://github.com/OpenSiFli/kicad-libraries/releases) 下载最新版本
+2. 转到 **工具** → **拓展内容管理器**
+![PCM-home](./docs/image-cn/PCM-home.png)
+3. PCM 窗口将显示可用的插件、库和颜色主题列表。您可以浏览分类或使用搜索栏查找特定包。
+![PCM](./docs/image-cn/PCM.png)
+4. 要使用最新版本的 ZIP 文件手动安装库，您需要从"从文件安装..."中选择文件
+![PCM-install](./docs/image-cn/install-from-file.png)
+5. 安装包后，您将在"已安装"选项卡中看到 SiFli Library。
+![PCM-SiFli](./docs/image-cn/SiFli.png)
+6. 现在您可以使用该库了。请注意，该库将在符号和封装中列为 PCM_SiFli。
 
-## 🏗️ 本地生成
+## 🔧 支持的芯片
 
-```bash
-uv sync --frozen
-uv run --directory SiliconSchema build-schema
-uv run kicad-generator --output-dir build
-```
+| 型号 | 封装名称  | 符号 | 封装 | 3D 模型 |
+|-------------|-------------|--------|-----------|----------|
+| SF32LB52XUx | QFN68 | ✅ | ✅ | ✅ |
+| SF32LB52xUx | QFN68 | ✅ | ✅ | ✅ |
 
-关键顺序：**必须先构建 SiliconSchema，再运行生成器**。
+**图例：**
 
-## 🚀 自动发布（Tag 驱动）
+- ✅ 可用
+- ⚠️ 即将推出
+- ❌ 不可用
 
-推送 tag 后，`/.github/workflows/release.yml` 自动执行：
+## 📡 支持的模组
 
-1. checkout + recursive submodules
-2. 安装 `uv`
-3. `uv sync --frozen`
-4. `uv run --directory SiliconSchema build-schema`
-5. `uv run kicad-generator --output-dir build`
-6. 整理发布目录（`symbols/`、`footprints/`、`resources/`、`metadata.json`）
-7. `uv run scripts/build_release.py --source-dir release-staging --tag <tag>`
-8. 上传 ZIP 与 `metadata-upstream.json` 到 GitHub Release
+| 型号 | 符号 | 封装 | 3D 模型 |
+|-------------|--------|-----------|----------|
+| SF32LB52-MOD-1 |  ✅ | ✅ | ❌ |
+
+**图例：**
+
+- ✅ 可用
+- ⚠️ 即将推出
+- ❌ 不可用
+
+## 📚 文档资料
+
+- [SiFli 硬件设计指南](https://wiki.sifli.com/hardware/index.html)
+- [SiFli 官方网站](https://www.sifli.com/)
+- [维护者文档](docs/maintainers.md)
 
 ## 🤝 贡献
 
-推荐贡献入口：
+欢迎贡献！请随时提交 Pull Request。
 
-- schema / module / template（`SiliconSchema`、`modules`、`templates`）
-- 生成器代码（`src/kicad_generator`）
+## 📄 许可证
 
-发布产物以 CI 自动生成为主，不再依赖手工维护。
+此库采用 [CC-BY-SA-4.0](LICENSE) 许可证。
+
+## 📞 技术支持
+
+如需技术支持和咨询：
+
+- 访问 [SiFli Wiki](https://wiki.sifli.com/)
+- 在此仓库中创建 issue
+- 联系：[GitHub Issues](https://github.com/OpenSiFli/kicad-libraries/issues)
