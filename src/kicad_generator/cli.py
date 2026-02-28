@@ -8,6 +8,8 @@ from typing import Sequence
 from .config import GeneratorOptions, GeneratorTargets
 from .runner import run
 
+LOGGER = logging.getLogger(__name__)
+
 
 def _is_workspace_root(path: Path) -> bool:
     """Check whether the given path looks like the repository workspace root.
@@ -136,7 +138,8 @@ def configure_logging(verbosity: int) -> None:
 
     logging.basicConfig(
         level=level,
-        format="%(levelname)s: %(message)s",
+        format="%(asctime)s | %(levelname)-8s | %(name)s | %(message)s",
+        datefmt="%Y-%m-%d %H:%M:%S",
     )
 
 

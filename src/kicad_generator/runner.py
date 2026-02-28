@@ -30,6 +30,8 @@ def apply_variant_filter(series: Sequence[ChipSeries], allowed: Sequence[str]) -
 
 
 def run(options: GeneratorOptions) -> int:
+    LOGGER.info("Starting generation with targets: footprints=%s symbols=%s", options.targets.footprints, options.targets.symbols)
+    LOGGER.debug("Generation options: output_dir=%s schema_dir=%s", options.output_dir, options.schema_dir)
     try:
         repo = SiliconSchemaRepository(options.schema_dir)
     except FileNotFoundError as exc:
@@ -68,12 +70,14 @@ def run(options: GeneratorOptions) -> int:
         )
 
     series = apply_variant_filter([*chips, *module_series], options.variant_filter)
+    LOGGER.info("Loaded %d series after filters (schema=%d, modules=%d).", len(series), len(chips), len(module_series))
 
     if not series:
         LOGGER.warning("No series matched the provided filters.")
         return 1
 
     if options.targets.footprints:
+        LOGGER.info("Generating footprints...")
         try:
             footprint_library = (
                 FootprintLibrary.from_directory(options.footprint_data_dir)
@@ -103,6 +107,11 @@ def run(options: GeneratorOptions) -> int:
             library=footprint_library,
             module_library=module_library,
         )
+        LOGGER.info(
+            "Footprints generated: %d artifacts, %d missing definitions.",
+            len(footprint_result.artifacts),
+            len(footprint_result.missing),
+        )
     else:
         footprint_result = load_footprint_manifest(
             output_dir=options.output_dir,
@@ -110,6 +119,7 @@ def run(options: GeneratorOptions) -> int:
         )
 
     if options.targets.symbols:
+        LOGGER.info("Generating symbols...")
         repo_root = options.kicad_library_utils_root
         if not repo_root or not repo_root.exists():
             LOGGER.error(
@@ -124,6 +134,7 @@ def run(options: GeneratorOptions) -> int:
             library_utils_root=repo_root,
         )
         symbol_generator.generate(series=series, footprints=footprint_result)
+        LOGGER.info("Symbols generated for %d series.", len(series))
 
     LOGGER.info("Generation complete.")
     return 0
