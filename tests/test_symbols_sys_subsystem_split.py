@@ -103,6 +103,34 @@ class TestSysSubsystemPacking(unittest.TestCase):
         finally:
             symbols.SYS_SUBSYSTEM_PRIORITY_LEVELS = original
 
+    def test_sys_packing_over_marker_forces_part_break(self) -> None:
+        gen = SymbolGenerator.__new__(SymbolGenerator)
+        original = symbols.SYS_SUBSYSTEM_PRIORITY_LEVELS
+        symbols.SYS_SUBSYSTEM_PRIORITY_LEVELS = (
+            ("analog", "rf", "over"),
+            ("crystal",),
+        )
+        try:
+            misc: list[SymbolPinSpec] = []
+            counter = 1
+            for subsystem, count in [
+                ("analog", 15),
+                ("rf", 15),
+                ("crystal", 20),
+            ]:
+                for _ in range(count):
+                    misc.append(make_misc_pin(counter, subsystem))
+                    counter += 1
+
+            units = gen._group_sys_units(misc)
+            self.assertEqual([unit.name for unit in units], ["SYS1", "SYS2", "SYS3"])
+            self.assertEqual({spec.subsystem for spec in units[0].pins}, {"analog"})
+            self.assertEqual({spec.subsystem for spec in units[1].pins}, {"rf"})
+            self.assertEqual({spec.subsystem for spec in units[2].pins}, {"crystal"})
+            self.assertEqual([len(unit.pins) for unit in units], [15, 15, 20])
+        finally:
+            symbols.SYS_SUBSYSTEM_PRIORITY_LEVELS = original
+
     def test_small_sys_keeps_single_part(self) -> None:
         gen = SymbolGenerator.__new__(SymbolGenerator)
         misc = [make_misc_pin(i, "power" if i <= 20 else "analog") for i in range(1, 41)]

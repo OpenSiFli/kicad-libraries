@@ -41,6 +41,10 @@ SYS_SPLIT_MAX_PINS = 40
 # Each tuple defines a priority level. Subsystems within the same level may be
 # packed together into a SYS unit; subsystems from different levels are never
 # mixed into the same SYS unit.
+#
+# Special marker:
+# - Include "over" in a level tuple to force a part break after each subsystem
+#   in that level (i.e. disable greedy packing within that level).
 SYS_SUBSYSTEM_PRIORITY_LEVELS: Tuple[Tuple[str, ...], ...] = (
     ("power",),
     ("analog",),
@@ -643,7 +647,9 @@ class SymbolGenerator:
             ``subsystem`` and each subsystem is treated as atomic (it must not span
             multiple SYS units). Subsystems are packed greedily within the same
             priority level; subsystems from different priority levels are never mixed
-            into the same SYS unit (even if there is remaining capacity).
+            into the same SYS unit (even if there is remaining capacity). If a priority
+            level contains the "over" marker, greedy packing within that level is
+            disabled (each subsystem in that level starts a new SYS unit).
         """
 
         if not misc:
@@ -668,12 +674,14 @@ class SymbolGenerator:
             groups[key] = self._sort_misc_pins(items)
 
         configured: set[str] = set()
-        priority_levels: list[list[str | None]] = []
+        priority_levels: list[tuple[list[str | None], bool]] = []
         for level in SYS_SUBSYSTEM_PRIORITY_LEVELS:
-            configured.update(level)
-            present = [key for key in level if key in groups]
+            over_marker = "over" in level
+            level_keys = tuple(key for key in level if key != "over")
+            configured.update(level_keys)
+            present = [key for key in level_keys if key in groups]
             if present:
-                priority_levels.append(present)
+                priority_levels.append((present, over_marker))
 
         unconfigured = sorted(
             key for key in groups if isinstance(key, str) and key not in configured
@@ -682,7 +690,7 @@ class SymbolGenerator:
             tail: list[str | None] = list(unconfigured)
             if None in groups:
                 tail.append(None)
-            priority_levels.append(tail)
+            priority_levels.append((tail, False))
 
         bins: list[list[str | None]] = []
         current: list[str | None] = []
@@ -696,7 +704,7 @@ class SymbolGenerator:
             current = []
             current_count = 0
 
-        for level in priority_levels:
+        for level, over_marker in priority_levels:
             flush()
             for key in level:
                 count = len(groups[key])
@@ -705,19 +713,16 @@ class SymbolGenerator:
                     bins.append([key])
                     continue
 
-                if not current:
+                if not current or current_count + count > SYS_SPLIT_MAX_PINS:
+                    flush()
                     current = [key]
                     current_count = count
-                    continue
-
-                if current_count + count <= SYS_SPLIT_MAX_PINS:
+                else:
                     current.append(key)
                     current_count += count
-                    continue
 
-                flush()
-                current = [key]
-                current_count = count
+                if over_marker:
+                    flush()
             flush()
 
         units: list[SymbolGenerator.Unit] = []
