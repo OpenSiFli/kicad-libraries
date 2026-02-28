@@ -74,7 +74,14 @@ class TestBgaPadSkips(unittest.TestCase):
 class TestBgaVariantConsistency(unittest.TestCase):
     def test_present_balls_mismatch_raises(self) -> None:
         pads = {
-            "VSS": ChipPad(name="VSS", type="power_input", description=None, notes=None, pinmux=()),
+            "VSS": ChipPad(
+                name="VSS",
+                type="power_input",
+                subsystem=None,
+                description=None,
+                notes=None,
+                pinmux=(),
+            ),
         }
         variant1 = ChipVariant(
             part_number="PN1",
@@ -113,4 +120,3 @@ class TestBgaVariantConsistency(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
-

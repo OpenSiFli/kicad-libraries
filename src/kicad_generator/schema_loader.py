@@ -18,6 +18,7 @@ class PinmuxEntry:
 class ChipPad:
     name: str
     type: str
+    subsystem: str | None
     description: str | None
     notes: str | None
     pinmux: Tuple[PinmuxEntry, ...]
@@ -136,6 +137,7 @@ class SiliconSchemaRepository:
             parsed[name] = ChipPad(
                 name=name,
                 type=payload["type"],
+                subsystem=payload.get("subsystem"),
                 description=payload.get("description"),
                 notes=payload.get("notes"),
                 pinmux=pinmux_entries,
