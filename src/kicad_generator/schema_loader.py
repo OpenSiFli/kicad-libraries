@@ -103,6 +103,28 @@ class SiliconSchemaRepository:
             raise FileNotFoundError(msg)
         return series_list
 
+    def load_series_by_id(self, model_id: str) -> ChipSeries:
+        """Load a single SiliconSchema series build artifact by its directory name.
+
+        Args:
+            model_id: Series identifier (directory name under `out/`).
+
+        Returns:
+            Parsed ChipSeries.
+
+        Raises:
+            FileNotFoundError: If the requested series build artifact cannot be located.
+        """
+
+        for found_id, path in self.iter_series_paths():
+            if found_id == model_id:
+                return self._load_series_file(path)
+        msg = (
+            f"SiliconSchema series {model_id!r} not found. Expected "
+            f"'{self.out_dir}/{model_id}/series.yaml' (or legacy '{self.chips_dir}/{model_id}/series.yaml')."
+        )
+        raise FileNotFoundError(msg)
+
     def _load_series_file(self, path: Path) -> ChipSeries:
         with path.open("r", encoding="utf-8") as handle:
             raw = yaml.safe_load(handle)
