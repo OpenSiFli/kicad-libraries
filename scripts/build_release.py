@@ -7,6 +7,7 @@ import argparse
 import hashlib
 import json
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -25,19 +26,39 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument(
         "--tag",
-        help="Release tag. If omitted, use GITHUB_REF_NAME or exact git tag on HEAD.",
+        help="Release tag used for package filename. If omitted, use GITHUB_REF_NAME or exact git tag on HEAD.",
+    )
+    parser.add_argument(
+        "--version",
+        help="PCM metadata version (must match KiCad numeric pattern). If omitted, derive from tag.",
     )
     return parser.parse_args()
 
 
-def get_all_tags() -> list[str]:
-    result = subprocess.run(
-        ["git", "tag", "--sort=-version:refname"],
-        capture_output=True,
-        text=True,
-        check=True,
-    )
-    return [tag.strip() for tag in result.stdout.splitlines() if tag.strip()]
+PCM_VERSION_PATTERN = re.compile(r"^\d{1,4}(\.\d{1,4}(\.\d{1,6})?)?$")
+
+
+def parse_version_from_tag(tag: str) -> str:
+    cleaned = tag.strip()
+    if cleaned.startswith("v") and len(cleaned) > 1:
+        cleaned = cleaned[1:]
+    if not PCM_VERSION_PATTERN.fullmatch(cleaned):
+        raise RuntimeError(
+            f"Tag '{tag}' cannot be converted to a PCM version. "
+            "Provide --version with a numeric value like 1.2.3."
+        )
+    return cleaned
+
+
+def resolve_pcm_version(explicit_version: str | None, package_tag: str) -> str:
+    if explicit_version:
+        version = explicit_version.strip()
+        if not PCM_VERSION_PATTERN.fullmatch(version):
+            raise RuntimeError(
+                f"Invalid PCM version '{explicit_version}'. Expected numeric format like 1.2.3"
+            )
+        return version
+    return parse_version_from_tag(package_tag)
 
 
 def get_current_tag(explicit_tag: str | None) -> str:
@@ -92,26 +113,12 @@ def write_metadata(path: Path, content: dict[str, Any]) -> None:
         json.dump(content, handle, indent=2, ensure_ascii=False)
 
 
-def build_versions(tags: list[str], current_tag: str) -> list[dict[str, Any]]:
-    versions: list[dict[str, Any]] = []
-    for tag in tags:
-        versions.append(
-            {
-                "version": tag,
-                "status": "stable",
-                "kicad_version": "9.0",
-            }
-        )
-
-    if not versions:
-        versions.append(
-            {
-                "version": current_tag,
-                "status": "stable",
-                "kicad_version": "9.0",
-            }
-        )
-    return versions
+def build_version_entry(version: str) -> dict[str, Any]:
+    return {
+        "version": version,
+        "status": "stable",
+        "kicad_version": "9.0",
+    }
 
 
 def create_zip_from_dir(source_dir: Path, zip_path: Path) -> None:
@@ -144,13 +151,15 @@ def main() -> int:
         print(f"Error: metadata.json not found under {source_dir}", file=sys.stderr)
         return 1
 
-    current_tag = get_current_tag(args.tag)
-    tags = get_all_tags()
-    if current_tag not in tags:
-        tags.insert(0, current_tag)
+    package_tag = get_current_tag(args.tag)
+    try:
+        pcm_version = resolve_pcm_version(args.version, package_tag)
+    except RuntimeError as exc:
+        print(f"Error: {exc}", file=sys.stderr)
+        return 1
 
     package_metadata = read_metadata(metadata_path)
-    package_metadata["versions"] = build_versions(tags, current_tag)
+    package_metadata["versions"] = [build_version_entry(pcm_version)]
 
     temp_dir = Path("temp_package")
     if temp_dir.exists():
@@ -171,7 +180,7 @@ def main() -> int:
 
         install_size = calculate_directory_size(temp_dir)
 
-        package_name = f"sifli-kicad-libraries-{current_tag}.zip"
+        package_name = f"sifli-kicad-libraries-{package_tag}.zip"
         package_path = Path(package_name)
         create_zip_from_dir(temp_dir, package_path)
 
@@ -179,19 +188,17 @@ def main() -> int:
         package_sha256 = calculate_sha256(package_path)
 
         upstream_metadata = read_metadata(metadata_path)
-        upstream_versions = build_versions(tags, current_tag)
         repo_info = get_repo_info()
-        for entry in upstream_versions:
-            if entry["version"] == current_tag:
-                entry.update(
-                    {
-                        "download_url": f"{repo_info['download_base']}/{current_tag}/{package_name}",
-                        "download_sha256": package_sha256,
-                        "download_size": package_size,
-                        "install_size": install_size,
-                    }
-                )
-        upstream_metadata["versions"] = upstream_versions
+        upstream_version = build_version_entry(pcm_version)
+        upstream_version.update(
+            {
+                "download_url": f"{repo_info['download_base']}/{package_tag}/{package_name}",
+                "download_sha256": package_sha256,
+                "download_size": package_size,
+                "install_size": install_size,
+            }
+        )
+        upstream_metadata["versions"] = [upstream_version]
 
         upstream_metadata_path = Path("metadata-upstream.json")
         write_metadata(upstream_metadata_path, upstream_metadata)
@@ -205,6 +212,7 @@ def main() -> int:
         )
 
         print(f"Package: {package_path}")
+        print(f"PCM version: {pcm_version}")
         print(f"Package size: {package_size}")
         print(f"Install size: {install_size}")
         print(f"SHA256: {package_sha256}")
