@@ -60,6 +60,14 @@ def build_parser() -> argparse.ArgumentParser:
         ),
     )
     parser.add_argument(
+        "--module-data-dir",
+        type=Path,
+        help=(
+            "Optional directory that contains module definitions (modules/*/module.yml). "
+            "If omitted, defaults to ./modules when present."
+        ),
+    )
+    parser.add_argument(
         "--footprint-data-dir",
         type=Path,
         help=(
@@ -153,6 +161,12 @@ def options_from_args(args: argparse.Namespace) -> GeneratorOptions:
         candidates = [schema_dir / "footprint", workspace_root / "footprint"]
         footprint_data_dir = next((path for path in candidates if path.is_dir()), None)
 
+    if args.module_data_dir:
+        module_data_dir = args.module_data_dir.expanduser().resolve()
+    else:
+        candidate = workspace_root / "modules"
+        module_data_dir = candidate.resolve() if candidate.is_dir() else None
+
     output_dir = args.output_dir.expanduser().resolve()
 
     targets = GeneratorTargets.from_flags(args.footprints_only, args.symbols_only)
@@ -170,6 +184,7 @@ def options_from_args(args: argparse.Namespace) -> GeneratorOptions:
     return GeneratorOptions(
         schema_dir=schema_dir,
         footprint_data_dir=footprint_data_dir,
+        module_data_dir=module_data_dir,
         output_dir=output_dir,
         targets=targets,
         series_filter=series_filter,

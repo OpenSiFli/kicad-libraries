@@ -10,6 +10,8 @@ from string import ascii_uppercase
 from typing import Any, Iterable, Mapping, Sequence
 
 from .footprint_loader import FootprintLibrary, FootprintPackageDefinition
+from .module_footprints import ModuleFootprintGenerator
+from .module_loader import ModuleDefinition, ModuleLibrary, ModuleVariantDefinition
 from .schema_loader import ChipSeries
 from .upstream import ensure_footprint_repo_on_sys_path
 
@@ -523,6 +525,29 @@ class GridArrayGeneratorAdapter:
         return [path] if path.is_file() else []
 
 
+class ModuleFootprintAdapter:
+    """Generates module footprints using the local module DSL."""
+
+    def __init__(self, repo_root: Path) -> None:
+        self.generator = ModuleFootprintGenerator(repo_root)
+
+    def generate(
+        self,
+        *,
+        output_dir: Path,
+        namespace: str,
+        module: ModuleDefinition,
+        variant: ModuleVariantDefinition,
+    ) -> list[Path]:
+        artifact = self.generator.generate(
+            output_dir=output_dir,
+            namespace=namespace,
+            module=module,
+            variant=variant,
+        )
+        return [artifact.path] if artifact.path.is_file() else []
+
+
 class FootprintGenerator:
     """Produces KiCad footprints via the upstream generators."""
 
@@ -531,6 +556,7 @@ class FootprintGenerator:
         self.namespace = namespace
         self.no_lead_adapter = NoLeadGeneratorAdapter(footprint_repo)
         self.grid_array_adapter = GridArrayGeneratorAdapter(footprint_repo)
+        self.module_adapter = ModuleFootprintAdapter(footprint_repo)
 
     def _planned_packages(self, series: Sequence[ChipSeries]) -> list[str]:
         packages = {variant.package for item in series for variant in item.variants}
@@ -540,6 +566,7 @@ class FootprintGenerator:
         self,
         series: Sequence[ChipSeries],
         library: FootprintLibrary,
+        module_library: ModuleLibrary | None = None,
     ) -> FootprintGenerationResult:
         required_packages = self._planned_packages(series)
         footprints_root = self.output_dir / "footprints"
@@ -559,7 +586,17 @@ class FootprintGenerator:
         for package_name in required_packages:
             generated_paths: list[Path] = []
             definition = library.get(package_name)
-            if is_sifli_bga_package(package_name):
+
+            module_entry = module_library.package_entry(package_name) if module_library else None
+            if module_entry is not None:
+                module, variant = module_entry
+                generated_paths = self.module_adapter.generate(
+                    output_dir=self.output_dir,
+                    namespace=self.namespace,
+                    module=module,
+                    variant=variant,
+                )
+            elif is_sifli_bga_package(package_name):
                 package = parse_sifli_bga_package_name(package_name)
                 present = bga_present.get(package_name) or frozenset()
                 pad_skips = infer_sifli_bga_pad_skips(package, present)

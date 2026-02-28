@@ -7,6 +7,7 @@ from typing import Sequence
 from .config import GeneratorOptions
 from .footprint_loader import FootprintLibrary
 from .footprints import FootprintGenerationResult, FootprintGenerator, load_footprint_manifest
+from .module_loader import ModuleLibrary
 from .schema_loader import ChipSeries, SiliconSchemaRepository
 from .symbols import SymbolGenerator
 
@@ -31,11 +32,42 @@ def apply_variant_filter(series: Sequence[ChipSeries], allowed: Sequence[str]) -
 def run(options: GeneratorOptions) -> int:
     try:
         repo = SiliconSchemaRepository(options.schema_dir)
-        series = repo.load_series(options.series_filter or None)
     except FileNotFoundError as exc:
         LOGGER.error("%s", exc)
         return 2
-    series = apply_variant_filter(series, options.variant_filter)
+
+    chips: list[ChipSeries] = []
+    if options.series_filter:
+        chip_ids = {model_id for model_id, _ in repo.iter_series_paths()}
+        chips_allowed = [item for item in options.series_filter if item in chip_ids]
+        if chips_allowed:
+            try:
+                chips = repo.load_series(chips_allowed)
+            except FileNotFoundError as exc:
+                LOGGER.error("%s", exc)
+                return 2
+    else:
+        try:
+            chips = repo.load_series(None)
+        except FileNotFoundError as exc:
+            LOGGER.error("%s", exc)
+            return 2
+
+    module_library: ModuleLibrary | None = None
+    module_series: list[ChipSeries] = []
+    if options.module_data_dir is not None:
+        try:
+            module_library = ModuleLibrary.from_directory(options.module_data_dir)
+        except FileNotFoundError as exc:
+            LOGGER.error("%s", exc)
+            return 2
+        module_series = module_library.to_chip_series(
+            repo,
+            schema_cache={entry.model_id: entry for entry in chips},
+            allowed_modules=options.series_filter or None,
+        )
+
+    series = apply_variant_filter([*chips, *module_series], options.variant_filter)
 
     if not series:
         LOGGER.warning("No series matched the provided filters.")
@@ -69,6 +101,7 @@ def run(options: GeneratorOptions) -> int:
         footprint_result = footprint_generator.generate(
             series=series,
             library=footprint_library,
+            module_library=module_library,
         )
     else:
         footprint_result = load_footprint_manifest(

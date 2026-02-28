@@ -33,6 +33,7 @@ class GeneratorOptions:
 
     schema_dir: Path
     footprint_data_dir: Path | None
+    module_data_dir: Path | None
     output_dir: Path
     targets: GeneratorTargets
     series_filter: Tuple[str, ...] = ()

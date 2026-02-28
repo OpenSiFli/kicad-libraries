@@ -5,6 +5,7 @@
 入口函数 `main()`。解析参数后构造 `GeneratorOptions`，调用 `runner.run()`。
 
 CLI 默认按仓库固定布局自动定位子模块路径（`./SiliconSchema`、`./kicad-footprint-generator`、`./kicad-library-utils`）。
+当仓库存在 `./modules/` 时，会默认加载其中的模组定义；也可通过 `--module-data-dir` 指定其它目录。
 
 ## runner.py — 编排逻辑
 
@@ -78,6 +79,33 @@ SiliconSchema pad type → KiCad pin electrical type，例：`bidirectional` →
 5. 生成 `manifest.json` 记录封装元数据
 
 `load_footprint_manifest()` 用于 `--symbols-only` 模式，从已有 manifest 恢复封装信息。
+
+## module_loader.py / module_footprints.py — 模组生成
+
+模组生成以本仓库 `modules/*/module.yml` 为真源（而非 SiliconSchema 子模块），并支持两类引脚来源：
+
+- `includes` 引用：通过 `include` 语法显式引用 SiliconSchema `out/<series>/series.yaml` 的 pad 定义，
+  复用 pad 的 `type` 与 `functions`（pinmux/Alt functions），避免在模组数据中重复维护。
+- `pads` 本地定义：用于模组内额外器件、电源、天线、NC 等非 SoC 引脚，可选提供 `functions` 列表。
+
+目录结构约定：
+
+```text
+modules/
+└── <module_id>/
+    ├── module.yml     # 元信息 + include + variants
+    ├── pins.yml       # 引脚表（number → pad/include）+ 本地 pads 定义
+    └── footprint.yml  # 推荐 PCB 封装 DSL（pad_groups / keepouts / body）
+```
+
+其中：
+
+- `module.yml.variants[].package` 作为 KiCad footprint 的 package key（会写入 footprint manifest）。
+- `pins.yml.pins[].pad` 可为字符串（本地 pad）或 `{include,name}`（引用 include pad）。
+- `footprint.yml` 中 `pad_groups` 的 pad number 必须与 `pins.yml` 一致（生成时会校验）。
+
+封装生成使用一个轻量 DSL（row/grid/single 的 pad group），并支持生成真实的 KiCad keepout zone
+（例如天线禁布区），输出到 `build/footprints/<namespace>.pretty/`。
 
 ## footprint_loader.py — 封装参数
 
