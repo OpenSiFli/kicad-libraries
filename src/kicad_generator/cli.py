@@ -16,15 +16,9 @@ def _is_workspace_root(path: Path) -> bool:
         path: Candidate directory.
 
     Returns:
-        True if the directory contains the expected layout (src package plus submodules).
+        True if the directory contains the expected project root layout.
     """
-    return (
-        (path / "pyproject.toml").is_file()
-        and (path / "src" / "kicad_generator").is_dir()
-        and (path / "SiliconSchema").exists()
-        and (path / "kicad-footprint-generator").exists()
-        and (path / "kicad-library-utils").exists()
-    )
+    return (path / "pyproject.toml").is_file() and (path / "src" / "kicad_generator").is_dir()
 
 
 def _resolve_workspace_root() -> Path:
@@ -47,7 +41,7 @@ def _resolve_workspace_root() -> Path:
                 return parent
     msg = (
         "Could not locate KiCAD-Generator workspace root (expected to contain "
-        "SiliconSchema/kicad-footprint-generator/kicad-library-utils submodules)."
+        "pyproject.toml and src/kicad_generator)."
     )
     raise FileNotFoundError(msg)
 
@@ -179,7 +173,14 @@ def options_from_args(args: argparse.Namespace) -> GeneratorOptions:
         return (workspace_root / fallback_name).expanduser().resolve()
 
     kicad_footprint_root = resolve_repo(args.kicad_footprint_root, "kicad-footprint-generator")
+    if targets.footprints and not kicad_footprint_root.exists():
+        msg = f"kicad-footprint-generator repository not found at {kicad_footprint_root}."
+        raise FileNotFoundError(msg)
+
     kicad_library_utils_root = resolve_repo(args.kicad_library_utils_root, "kicad-library-utils")
+    if targets.symbols and not kicad_library_utils_root.exists():
+        msg = f"kicad-library-utils repository not found at {kicad_library_utils_root}."
+        raise FileNotFoundError(msg)
 
     return GeneratorOptions(
         schema_dir=schema_dir,

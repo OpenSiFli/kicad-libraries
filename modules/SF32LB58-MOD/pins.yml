@@ -1,106 +1,132 @@
 pads:
   AU_ADC1N_IN:
     type: input
+    subsystem: audio
     functions:
       - AU_ADC1N_IN
   AU_ADC1P_IN:
     type: input
+    subsystem: audio
     functions:
       - AU_ADC1P_IN
   AU_ADC2N_IN:
     type: input
+    subsystem: audio
     functions:
       - AU_ADC2N_IN
   AU_ADC2P_IN:
     type: input
+    subsystem: audio
     functions:
       - AU_ADC2P_IN
   AU_DAC1N_OUT:
     type: output
+    subsystem: audio
     functions:
       - AU_DAC1N_OUT
   AU_DAC1P_OUT:
     type: output
+    subsystem: audio
     functions:
       - AU_DAC1P_OUT
   AU_DAC2N_OUT:
     type: output
+    subsystem: audio
     functions:
       - AU_DAC2N_OUT
   AU_DAC2P_OUT:
     type: output
+    subsystem: audio
     functions:
       - AU_DAC2P_OUT
   BOOT_MODE:
     type: input
+    subsystem: strapping
     functions:
       - BOOT_MODE
   BT_ANT:
     type: passive
+    subsystem: rf
     functions:
       - BT_ANT
   DSI_CLKN:
     type: output
+    subsystem: display
     functions:
       - DSI_CLKN
   DSI_CLKP:
     type: output
+    subsystem: display
     functions:
       - DSI_CLKP
   DSI_D0N:
     type: output
+    subsystem: display
     functions:
       - DSI_D0N
   DSI_D0P:
     type: output
+    subsystem: display
     functions:
       - DSI_D0P
   DSI_D1N:
     type: output
+    subsystem: display
     functions:
       - DSI_D1N
   DSI_D1P:
     type: output
+    subsystem: display
     functions:
       - DSI_D1P
   GND:
     type: power_input
+    subsystem: power
     functions:
       - GND
   MIC_BIAS:
     type: power_output
+    subsystem: audio
     functions:
       - MIC_BIAS
   RSTN:
     type: input
+    subsystem: strapping
     functions:
       - RSTN
   USB2_DN:
     type: bidirectional
+    subsystem: usb
     functions:
       - USB2_DN
   USB2_DP:
     type: bidirectional
+    subsystem: usb
     functions:
       - USB2_DP
   VDDIOA:
     type: power_input
+    subsystem: power
     functions:
       - VDDIOA
   VDDIOA2:
     type: power_input
+    subsystem: power
     functions:
       - VDDIOA2
   VDDIOB:
     type: power_input
+    subsystem: power
     functions:
       - VDDIOB
   VDD_1V8:
     type: power_input
+    subsystem: power
     functions:
       - VDD_1V8
   VDD_3V3:
     type: power_input
+    subsystem: power
     functions:
       - VDD_3V3
 pins:

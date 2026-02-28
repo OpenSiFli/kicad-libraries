@@ -48,6 +48,7 @@ class ModulePadSpec:
 
     name: str
     type: str
+    subsystem: str | None
     description: str | None
     notes: str | None
     pinmux: tuple[PinmuxEntry, ...]
@@ -56,6 +57,7 @@ class ModulePadSpec:
         return ChipPad(
             name=self.name,
             type=self.type,
+            subsystem=self.subsystem,
             description=self.description,
             notes=self.notes,
             pinmux=self.pinmux,
@@ -225,6 +227,7 @@ class ModuleLibrary:
                     spec = ModulePadSpec(
                         name=name,
                         type="passive",
+                        subsystem=None,
                         description=None,
                         notes=None,
                         pinmux=(),
@@ -419,6 +422,7 @@ class ModuleLibrary:
             local_pads[str(pad_name)] = ModulePadSpec(
                 name=str(pad_name),
                 type=pad_type,
+                subsystem=str(spec.get("subsystem")) if spec.get("subsystem") is not None else None,
                 description=spec.get("description"),
                 notes=spec.get("notes"),
                 pinmux=pinmux,

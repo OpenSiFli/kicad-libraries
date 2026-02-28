@@ -864,8 +864,13 @@ class SymbolGenerator:
                     length=pin_length,
                     unit=unit,
                 )
-                for mux in spec.pinmux:
-                    pin.altfuncs.append(self.AltFunction(mux.function, pin.etype))
+                emit_altfuncs = (
+                    spec.pad_type not in {"power_input", "power_output"}
+                    and len(spec.pinmux) > 1
+                )
+                if emit_altfuncs:
+                    for mux in spec.pinmux:
+                        pin.altfuncs.append(self.AltFunction(mux.function, pin.etype))
                 symbol.pins.append(pin)
 
         place(left, x=-left_offset, rotation=0)

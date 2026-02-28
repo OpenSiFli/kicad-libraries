@@ -1,38 +1,47 @@
 pads:
   AU_DAC1N_OUT:
     type: output
+    subsystem: audio
     functions:
       - AU_DAC1N_OUT
   AU_DAC1P_OUT:
     type: output
+    subsystem: audio
     functions:
       - AU_DAC1P_OUT
   GND:
     type: power_input
+    subsystem: power
     functions:
       - GND
   MIC_ADC_IN:
     type: input
+    subsystem: audio
     functions:
       - MIC_ADC_IN
   MIC_BIAS:
     type: power_output
+    subsystem: audio
     functions:
       - MIC_BIAS
   NC:
     type: unconnected
+    subsystem: strapping
     functions:
       - NC
   VBATS:
     type: power_input
+    subsystem: power
     functions:
       - VBATS
   VDD33_VOUT2:
     type: power_output
+    subsystem: power
     functions:
       - VDD33_VOUT2
   VSYS:
     type: power_input
+    subsystem: power
     functions:
       - VSYS
 pins:

@@ -67,7 +67,11 @@ class TestModuleLibrary(unittest.TestCase):
                 module_dir / "pins.yml",
                 {
                     "pads": {
-                        "VBATS": {"type": "power_input", "functions": ["VBATS"]},
+                        "VBATS": {
+                            "type": "power_input",
+                            "subsystem": "power",
+                            "functions": ["VBATS"],
+                        },
                     },
                     "pins": [
                         {
@@ -90,6 +94,7 @@ class TestModuleLibrary(unittest.TestCase):
             self.assertIn("VBATS", module_series.pads)
             self.assertEqual(module_series.pads["PA44"].pinmux[0].function, "GPIO_A44")
             self.assertEqual(module_series.pads["VBATS"].pinmux[0].function, "VBATS")
+            self.assertEqual(module_series.pads["VBATS"].subsystem, "power")
 
             variant = module_series.variants[0]
             self.assertEqual(variant.package, "SF32LB52-MOD-1")

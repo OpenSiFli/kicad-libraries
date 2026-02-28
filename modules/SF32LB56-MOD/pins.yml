@@ -1,38 +1,47 @@
 pads:
   AU_DACN:
     type: output
+    subsystem: audio
     functions:
       - AU_DACN
   AU_DACP:
     type: output
+    subsystem: audio
     functions:
       - AU_DACP
   BOOT_MODE:
     type: input
+    subsystem: strapping
     functions:
       - BOOT_MODE
   GND:
     type: power_input
+    subsystem: power
     functions:
       - GND
   MIC_ADC_IN:
     type: input
+    subsystem: audio
     functions:
       - MIC_ADC_IN
   MIC_BIAS:
     type: power_output
+    subsystem: audio
     functions:
       - MIC_BIAS
   VDDIO:
     type: power_input
+    subsystem: power
     functions:
       - VDDIO
   VDD_1V8:
     type: power_input
+    subsystem: power
     functions:
       - VDD_1V8
   VDD_3V3:
     type: power_input
+    subsystem: power
     functions:
       - VDD_3V3
 pins:

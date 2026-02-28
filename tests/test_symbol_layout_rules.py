@@ -170,6 +170,61 @@ class TestSymbolLayoutRules(unittest.TestCase):
             expected = gen._snap(max(base_half, base_half + (left_extra + right_extra) / 2))
             self.assertAlmostEqual(body_half, expected, places=6)
 
+    def test_power_pins_do_not_emit_alt_functions(self) -> None:
+        namespace = "PCM_SiFli_MOD"
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            output_dir = Path(tmpdir)
+            gen = SymbolGenerator(
+                output_dir=output_dir,
+                footprint_namespace=namespace,
+                library_utils_root=ROOT / "kicad-library-utils",
+            )
+
+            power_pin = SymbolPinSpec(
+                number="1",
+                name="VDD",
+                pad_type="power_input",
+                electrical_type="power_in",
+                pinmux=(
+                    PinmuxEntry(function="VDD"),
+                    PinmuxEntry(function="VDD_ALT"),
+                ),
+                pad_name="VDD",
+                subsystem="power",
+            )
+
+            sym = gen.KicadSymbol.new("TEST_PWR", gen.library_name)
+            gen._place_pins(sym, unit=1, pins=[power_pin], pair_mode=False)
+            self.assertEqual(len(sym.pins), 1)
+            self.assertEqual(len(sym.pins[0].altfuncs), 0)
+
+    def test_single_function_pin_does_not_emit_alt_functions(self) -> None:
+        namespace = "PCM_SiFli_MOD"
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            output_dir = Path(tmpdir)
+            gen = SymbolGenerator(
+                output_dir=output_dir,
+                footprint_namespace=namespace,
+                library_utils_root=ROOT / "kicad-library-utils",
+            )
+
+            single_mux_pin = SymbolPinSpec(
+                number="2",
+                name="PA00",
+                pad_type="bidirectional",
+                electrical_type="bidirectional",
+                pinmux=(PinmuxEntry(function="GPIO_A00"),),
+                pad_name="PA00",
+                subsystem=None,
+            )
+
+            sym = gen.KicadSymbol.new("TEST_SINGLE_ALT", gen.library_name)
+            gen._place_pins(sym, unit=1, pins=[single_mux_pin], pair_mode=True)
+            self.assertEqual(len(sym.pins), 1)
+            self.assertEqual(len(sym.pins[0].altfuncs), 0)
+
 
 if __name__ == "__main__":
     unittest.main()
