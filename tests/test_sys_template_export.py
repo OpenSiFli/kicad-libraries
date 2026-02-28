@@ -2,6 +2,7 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
+from types import MethodType
 
 
 # Allow `import kicad_generator` without installing the project.
@@ -93,7 +94,67 @@ class TestSysTemplateExport(unittest.TestCase):
                 logs.output,
             )
 
+    def test_multiple_pin_groups_skip_series_template_fallback(self) -> None:
+        namespace = "PCM_SiFli_MOD"
+        package = "DUMMY_PKG"
+
+        pads = {
+            "VSS": ChipPad(
+                name="VSS",
+                type="power_input",
+                subsystem="power",
+                description=None,
+                notes=None,
+                pinmux=(),
+            ),
+        }
+        variant1 = ChipVariant(
+            part_number="PN1",
+            package=package,
+            description=None,
+            pins=(ChipVariantPin(number="1", pads=("VSS",)),),
+            pin_group_id=1,
+        )
+        variant2 = ChipVariant(
+            part_number="PN2",
+            package=package,
+            description=None,
+            pins=(ChipVariantPin(number="1", pads=("VSS",)),),
+            pin_group_id=2,
+        )
+        series = ChipSeries(
+            model_id="TEST",
+            lifecycle="production",
+            docs=(),
+            pads=pads,
+            variants=(variant1, variant2),
+            schema_version="0",
+            source_path=Path("series.yaml"),
+        )
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            output_dir = Path(tmpdir)
+            gen = SymbolGenerator(
+                output_dir=output_dir,
+                footprint_namespace=namespace,
+                library_utils_root=ROOT / "kicad-library-utils",
+            )
+
+            calls: list[str] = []
+
+            def spy_load_sys_template(self, template_id: str, symbol_name_hint: str | None = None):
+                calls.append(template_id)
+                return None
+
+            gen._load_sys_template = MethodType(spy_load_sys_template, gen)
+            footprints = dummy_footprints(namespace, package, output_dir)
+            with self.assertLogs("kicad_generator.symbols", level="WARNING"):
+                gen.generate(series=(series,), footprints=footprints)
+
+            self.assertNotIn("TEST", calls)
+            self.assertTrue((output_dir / "template" / "TEST__PN1.kicad_sym").is_file())
+            self.assertTrue((output_dir / "template" / "TEST__PN2.kicad_sym").is_file())
+
 
 if __name__ == "__main__":
     unittest.main()
-
