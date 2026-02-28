@@ -120,12 +120,20 @@ class SymbolGenerator:
         self.library_utils_root = library_utils_root
         self.library_name = "MCU_SiFli"
         ensure_symbol_repo_on_sys_path(library_utils_root)
-        from kicad_sym import AltFunction, KicadLibrary, KicadSymbol, Pin, Rectangle  # type: ignore
+        from kicad_sym import (  # type: ignore
+            AltFunction,
+            KicadLibrary,
+            KicadSymbol,
+            Pin,
+            Property,
+            Rectangle,
+        )
 
         self.AltFunction = AltFunction
         self.KicadLibrary = KicadLibrary
         self.KicadSymbol = KicadSymbol
         self.Pin = Pin
+        self.Property = Property
         self.Rectangle = Rectangle
         self.sys_template_dir = self._resolve_sys_template_dir()
         self._sys_template_cache: Dict[str, SysTemplate | None] = {}
@@ -261,6 +269,10 @@ class SymbolGenerator:
 
         if extends:
             return symbol
+
+        lock = self.Property("ki_locked", "")
+        lock.effects.is_hidden = True
+        symbol.properties.append(lock)
 
         pins = self._collect_pin_specs(series.pads, variant)
         units = self._group_units(pins)
