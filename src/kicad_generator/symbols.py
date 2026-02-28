@@ -38,15 +38,18 @@ BODY_HALF_WIDTH = 5.0
 PIN_CLEARANCE = 1.0
 GRID = 1.27  # 50 mil grid for horizontal alignment
 SYS_SPLIT_MAX_PINS = 40
-SYS_SUBSYSTEM_PRIORITY: Tuple[str, ...] = (
-    "power",
-    "analog",
-    "rf",
-    "crystal",
-    "audio",
-    "mipi",
-    "usb",
-    "strapping",
+# Each tuple defines a priority level. Subsystems within the same level may be
+# packed together into a SYS unit; subsystems from different levels are never
+# mixed into the same SYS unit.
+SYS_SUBSYSTEM_PRIORITY_LEVELS: Tuple[Tuple[str, ...], ...] = (
+    ("power",),
+    ("analog",),
+    ("rf",),
+    ("crystal",),
+    ("audio",),
+    ("mipi",),
+    ("usb",),
+    ("strapping",),
 )
 
 
@@ -635,6 +638,12 @@ class SymbolGenerator:
 
         Returns:
             A list of SYS units in display order (highest-priority subsystems first).
+
+            When the SYS pins exceed ``SYS_SPLIT_MAX_PINS``, pins are first grouped by
+            ``subsystem`` and each subsystem is treated as atomic (it must not span
+            multiple SYS units). Subsystems are packed greedily within the same
+            priority level; subsystems from different priority levels are never mixed
+            into the same SYS unit (even if there is remaining capacity).
         """
 
         if not misc:
@@ -658,10 +667,22 @@ class SymbolGenerator:
         for key, items in list(groups.items()):
             groups[key] = self._sort_misc_pins(items)
 
-        ordered: list[str | None] = [key for key in SYS_SUBSYSTEM_PRIORITY if key in groups]
-        ordered.extend(sorted(key for key in groups if key is not None and key not in SYS_SUBSYSTEM_PRIORITY))
-        if None in groups:
-            ordered.append(None)
+        configured: set[str] = set()
+        priority_levels: list[list[str | None]] = []
+        for level in SYS_SUBSYSTEM_PRIORITY_LEVELS:
+            configured.update(level)
+            present = [key for key in level if key in groups]
+            if present:
+                priority_levels.append(present)
+
+        unconfigured = sorted(
+            key for key in groups if isinstance(key, str) and key not in configured
+        )
+        if unconfigured or None in groups:
+            tail: list[str | None] = list(unconfigured)
+            if None in groups:
+                tail.append(None)
+            priority_levels.append(tail)
 
         bins: list[list[str | None]] = []
         current: list[str | None] = []
@@ -675,28 +696,29 @@ class SymbolGenerator:
             current = []
             current_count = 0
 
-        for key in ordered:
-            count = len(groups[key])
-            if count > SYS_SPLIT_MAX_PINS:
-                flush()
-                bins.append([key])
-                continue
+        for level in priority_levels:
+            flush()
+            for key in level:
+                count = len(groups[key])
+                if count > SYS_SPLIT_MAX_PINS:
+                    flush()
+                    bins.append([key])
+                    continue
 
-            if not current:
+                if not current:
+                    current = [key]
+                    current_count = count
+                    continue
+
+                if current_count + count <= SYS_SPLIT_MAX_PINS:
+                    current.append(key)
+                    current_count += count
+                    continue
+
+                flush()
                 current = [key]
                 current_count = count
-                continue
-
-            if current_count + count <= SYS_SPLIT_MAX_PINS:
-                current.append(key)
-                current_count += count
-                continue
-
             flush()
-            current = [key]
-            current_count = count
-
-        flush()
 
         units: list[SymbolGenerator.Unit] = []
         for idx, bin_keys in enumerate(bins, start=1):

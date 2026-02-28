@@ -9,6 +9,7 @@ sys.path.insert(0, str(ROOT / "src"))
 
 
 from kicad_generator.symbols import SymbolGenerator, SymbolPinSpec  # noqa: E402
+import kicad_generator.symbols as symbols  # noqa: E402
 
 
 def make_misc_pin(number: int, subsystem: str | None) -> SymbolPinSpec:
@@ -57,10 +58,11 @@ class TestSysSubsystemPacking(unittest.TestCase):
                 counter += 1
 
         units = gen._group_sys_units(misc)
-        self.assertEqual([unit.name for unit in units], ["SYS1", "SYS2", "SYS3"])
-        self.assertEqual(len(units[0].pins), 46)
-        self.assertEqual(len(units[1].pins), 34)
-        self.assertEqual(len(units[2].pins), 16)
+        self.assertEqual(
+            [unit.name for unit in units],
+            ["SYS1", "SYS2", "SYS3", "SYS4", "SYS5", "SYS6", "SYS7", "SYS8", "SYS9"],
+        )
+        self.assertEqual([len(unit.pins) for unit in units], [46, 12, 9, 4, 9, 10, 4, 1, 1])
         self.assertEqual({spec.subsystem for spec in units[0].pins}, {"power"})
 
         subsystem_seen: dict[str | None, str] = {}
@@ -69,6 +71,37 @@ class TestSysSubsystemPacking(unittest.TestCase):
                 if subsystem in subsystem_seen:
                     self.fail(f"subsystem {subsystem!r} appears in both {subsystem_seen[subsystem]} and {unit.name}")
                 subsystem_seen[subsystem] = unit.name
+
+    def test_sys_packing_respects_priority_levels(self) -> None:
+        gen = SymbolGenerator.__new__(SymbolGenerator)
+        original = symbols.SYS_SUBSYSTEM_PRIORITY_LEVELS
+        symbols.SYS_SUBSYSTEM_PRIORITY_LEVELS = (
+            ("power",),
+            ("analog", "rf"),
+            ("crystal",),
+        )
+        try:
+            misc: list[SymbolPinSpec] = []
+            counter = 1
+            for subsystem, count in [
+                ("power", 10),
+                ("analog", 15),
+                ("rf", 10),
+                ("crystal", 6),
+            ]:
+                for _ in range(count):
+                    misc.append(make_misc_pin(counter, subsystem))
+                    counter += 1
+
+            units = gen._group_sys_units(misc)
+            self.assertEqual([unit.name for unit in units], ["SYS1", "SYS2", "SYS3"])
+            self.assertEqual({spec.subsystem for spec in units[0].pins}, {"power"})
+            self.assertEqual({spec.subsystem for spec in units[1].pins}, {"analog", "rf"})
+            self.assertEqual({spec.subsystem for spec in units[2].pins}, {"crystal"})
+            self.assertEqual(len(units[1].pins), 25)
+            self.assertEqual(len(units[2].pins), 6)
+        finally:
+            symbols.SYS_SUBSYSTEM_PRIORITY_LEVELS = original
 
     def test_small_sys_keeps_single_part(self) -> None:
         gen = SymbolGenerator.__new__(SymbolGenerator)
@@ -91,4 +124,3 @@ class TestSysSubsystemPacking(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
-
