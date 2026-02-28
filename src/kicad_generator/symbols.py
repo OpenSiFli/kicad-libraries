@@ -48,8 +48,7 @@ SYS_SPLIT_MAX_PINS = 40
 #   in that level (i.e. disable greedy packing within that level).
 SYS_SUBSYSTEM_PRIORITY_LEVELS: Tuple[Tuple[str, ...], ...] = (
     ("power", "analog", "over"),
-    ("crystal", "rf", "strapping"),
-    ("audio", "mipi", "usb"),
+    ("crystal", "rf", "strapping", "audio", "mipi", "usb"),
 )
 
 
