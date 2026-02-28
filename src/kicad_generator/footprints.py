@@ -28,7 +28,7 @@ class FootprintArtifact:
 
     @property
     def qualified_name(self) -> str:
-        return f"{self.namespace}:{self.name}"
+        return f"{self.library}:{self.name}"
 
 
 @dataclass(frozen=True)
