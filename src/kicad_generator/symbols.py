@@ -486,8 +486,13 @@ class SymbolGenerator:
             pin.name_effect = copy.deepcopy(layout.name_effect)
             pin.number_effect = copy.deepcopy(layout.number_effect)
             pin.demorgan = 0
-            for mux in spec.pinmux:
-                pin.altfuncs.append(self.AltFunction(mux.function, pin.etype))
+            emit_altfuncs = (
+                spec.pad_type not in {"power_input", "power_output"}
+                and len(spec.pinmux) > 1
+            )
+            if emit_altfuncs:
+                for mux in spec.pinmux:
+                    pin.altfuncs.append(self.AltFunction(mux.function, pin.etype))
             symbol.pins.append(pin)
 
         LOGGER.info(

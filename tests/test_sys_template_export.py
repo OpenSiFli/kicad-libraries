@@ -16,8 +16,14 @@ from kicad_generator.schema_loader import (  # noqa: E402
     ChipSeries,
     ChipVariant,
     ChipVariantPin,
+    PinmuxEntry,
 )
-from kicad_generator.symbols import SymbolGenerator  # noqa: E402
+from kicad_generator.symbols import (  # noqa: E402
+    SymbolGenerator,
+    SymbolPinSpec,
+    SysTemplate,
+    SysTemplateUnit,
+)
 
 
 def dummy_footprints(namespace: str, package: str, output_dir: Path) -> FootprintGenerationResult:
@@ -154,6 +160,66 @@ class TestSysTemplateExport(unittest.TestCase):
             self.assertNotIn("TEST", calls)
             self.assertTrue((output_dir / "template" / "TEST__PN1.kicad_sym").is_file())
             self.assertTrue((output_dir / "template" / "TEST__PN2.kicad_sym").is_file())
+
+    def test_sys_template_power_pin_does_not_emit_alt_functions(self) -> None:
+        namespace = "PCM_SiFli_MOD"
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            output_dir = Path(tmpdir)
+            gen = SymbolGenerator(
+                output_dir=output_dir,
+                footprint_namespace=namespace,
+                library_utils_root=ROOT / "kicad-library-utils",
+            )
+
+            power_pin = SymbolPinSpec(
+                number="1",
+                name="VDD",
+                pad_type="power_input",
+                electrical_type="power_in",
+                pinmux=(
+                    PinmuxEntry(function="VDD"),
+                    PinmuxEntry(function="VDD_ALT"),
+                ),
+                pad_name="VDD",
+                subsystem="power",
+            )
+
+            unit = SymbolGenerator.Unit(name="SYS", pins=[power_pin], pair_mode=False)
+            template_pin = gen.Pin(
+                name="VDD",
+                number="1",
+                etype="power_in",
+                posx=0,
+                posy=0,
+                rotation=0,
+                length=2.54,
+                unit=1,
+            )
+            template_unit = SysTemplateUnit(
+                name="SYS",
+                pins=(template_pin,),
+                rectangles=(),
+                circles=(),
+                arcs=(),
+                polylines=(),
+                beziers=(),
+                texts=(),
+            )
+            template = SysTemplate(template_id="TEST", path=output_dir / "TEST.kicad_sym", units={"SYS": template_unit})
+
+            symbol = gen.KicadSymbol.new("TEST", gen.library_name)
+            applied, mismatch = gen._apply_sys_template_unit(
+                symbol=symbol,
+                unit_index=1,
+                unit=unit,
+                template=template,
+            )
+
+            self.assertTrue(applied)
+            self.assertFalse(mismatch)
+            self.assertEqual(len(symbol.pins), 1)
+            self.assertEqual(len(symbol.pins[0].altfuncs), 0)
 
 
 if __name__ == "__main__":
