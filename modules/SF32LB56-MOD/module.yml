@@ -1,0 +1,14 @@
+schema_version: 1
+module_id: SF32LB56-MOD
+docs:
+  datasheet:
+    zh: var/DS5602-SF32LB56-MOD技术规格书 V0p3.pdf
+includes:
+  soc:
+    kind: silicon_schema
+    series: SF32LB56x
+variants:
+  - part_number: SF32LB56-MOD
+    package: SF32LB56-MOD
+    pins_file: pins.yml
+footprint_file: footprint.yml

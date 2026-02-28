@@ -1,0 +1,14 @@
+schema_version: 1
+module_id: SF32LB52-MOD-1
+docs:
+  datasheet:
+    en: var/DS5203-SF32LB52-MOD-1技术规格书 V0p3.pdf
+includes:
+  soc:
+    kind: silicon_schema
+    series: SF32LB52x
+variants:
+  - part_number: SF32LB52-MOD-1
+    package: SF32LB52-MOD-1
+    pins_file: pins.yml
+footprint_file: footprint.yml

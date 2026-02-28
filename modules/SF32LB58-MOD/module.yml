@@ -1,0 +1,14 @@
+schema_version: 1
+module_id: SF32LB58-MOD
+docs:
+  datasheet:
+    zh: var/DS5802-SF32LB58-MOD技术规格书 V0p1.pdf
+includes:
+  soc:
+    kind: silicon_schema
+    series: SF32LB58x
+variants:
+  - part_number: SF32LB58-MOD
+    package: SF32LB58-MOD
+    pins_file: pins.yml
+footprint_file: footprint.yml

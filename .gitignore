@@ -130,3 +130,6 @@ Thumbs.db
 AGENTS.md
 
 *.bak
+
+# ---- Local scratch ----
+tmp/

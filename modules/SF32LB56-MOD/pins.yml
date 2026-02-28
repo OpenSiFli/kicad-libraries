@@ -1,0 +1,356 @@
+pads:
+  AU_DACN:
+    type: output
+    functions:
+      - AU_DACN
+  AU_DACP:
+    type: output
+    functions:
+      - AU_DACP
+  BOOT_MODE:
+    type: input
+    functions:
+      - BOOT_MODE
+  GND:
+    type: power_input
+    functions:
+      - GND
+  MIC_ADC_IN:
+    type: input
+    functions:
+      - MIC_ADC_IN
+  MIC_BIAS:
+    type: power_output
+    functions:
+      - MIC_BIAS
+  VDDIO:
+    type: power_input
+    functions:
+      - VDDIO
+  VDD_1V8:
+    type: power_input
+    functions:
+      - VDD_1V8
+  VDD_3V3:
+    type: power_input
+    functions:
+      - VDD_3V3
+pins:
+  - number: "1"
+    pad: GND
+  - number: "2"
+    pad:
+      include: soc
+      name: PB22
+  - number: "3"
+    pad:
+      include: soc
+      name: PA47
+  - number: "4"
+    pad:
+      include: soc
+      name: PA42
+  - number: "5"
+    pad:
+      include: soc
+      name: PA44
+  - number: "6"
+    pad:
+      include: soc
+      name: PB17
+  - number: "7"
+    pad:
+      include: soc
+      name: PB16
+  - number: "8"
+    pad:
+      include: soc
+      name: PA45
+  - number: "9"
+    pad:
+      include: soc
+      name: PA46
+  - number: "10"
+    pad:
+      include: soc
+      name: PA18
+  - number: "11"
+    pad:
+      include: soc
+      name: PA17
+  - number: "12"
+    pad:
+      include: soc
+      name: PA40
+  - number: "13"
+    pad:
+      include: soc
+      name: PA39
+  - number: "14"
+    pad:
+      include: soc
+      name: PB32
+  - number: "15"
+    pad:
+      include: soc
+      name: PA51
+  - number: "16"
+    pad:
+      include: soc
+      name: PA41
+  - number: "17"
+    pad:
+      include: soc
+      name: PA43
+  - number: "18"
+    pad:
+      include: soc
+      name: PA38
+  - number: "19"
+    pad:
+      include: soc
+      name: PA37
+  - number: "20"
+    pad:
+      include: soc
+      name: PA36
+  - number: "21"
+    pad:
+      include: soc
+      name: PA35
+  - number: "22"
+    pad:
+      include: soc
+      name: PA31
+  - number: "23"
+    pad:
+      include: soc
+      name: PA29
+  - number: "24"
+    pad:
+      include: soc
+      name: PA34
+  - number: "25"
+    pad: BOOT_MODE
+  - number: "26"
+    pad: VDD_3V3
+  - number: "27"
+    pad: VDD_1V8
+  - number: "28"
+    pad: GND
+  - number: "29"
+    pad: VDDIO
+  - number: "30"
+    pad:
+      include: soc
+      name: PA01
+  - number: "31"
+    pad:
+      include: soc
+      name: PA02
+  - number: "32"
+    pad:
+      include: soc
+      name: PA03
+  - number: "33"
+    pad:
+      include: soc
+      name: PA04
+  - number: "34"
+    pad:
+      include: soc
+      name: PA15
+  - number: "35"
+    pad:
+      include: soc
+      name: PA22
+  - number: "36"
+    pad:
+      include: soc
+      name: PA27
+  - number: "37"
+    pad:
+      include: soc
+      name: PA26
+  - number: "38"
+    pad:
+      include: soc
+      name: PA20
+  - number: "39"
+    pad:
+      include: soc
+      name: PA12
+  - number: "40"
+    pad:
+      include: soc
+      name: PA33
+  - number: "41"
+    pad:
+      include: soc
+      name: PA32
+  - number: "42"
+    pad: GND
+  - number: "43"
+    pad: AU_DACP
+  - number: "44"
+    pad: AU_DACN
+  - number: "45"
+    pad: GND
+  - number: "46"
+    pad: MIC_BIAS
+  - number: "47"
+    pad: MIC_ADC_IN
+  - number: "48"
+    pad:
+      include: soc
+      name: PA50
+  - number: "49"
+    pad:
+      include: soc
+      name: PA30
+  - number: "50"
+    pad:
+      include: soc
+      name: PA28
+  - number: "51"
+    pad:
+      include: soc
+      name: PA25
+  - number: "52"
+    pad:
+      include: soc
+      name: PA23
+  - number: "53"
+    pad:
+      include: soc
+      name: PA21
+  - number: "54"
+    pad:
+      include: soc
+      name: PA19
+  - number: "55"
+    pad:
+      include: soc
+      name: PA24
+  - number: "56"
+    pad:
+      include: soc
+      name: PA16
+  - number: "57"
+    pad:
+      include: soc
+      name: PA13
+  - number: "58"
+    pad:
+      include: soc
+      name: PA14
+  - number: "59"
+    pad:
+      include: soc
+      name: PB23
+  - number: "60"
+    pad: GND
+  - number: "61"
+    pad:
+      include: soc
+      name: PB12
+  - number: "62"
+    pad:
+      include: soc
+      name: PB11
+  - number: "63"
+    pad:
+      include: soc
+      name: PB09
+  - number: "64"
+    pad:
+      include: soc
+      name: PB08
+  - number: "65"
+    pad:
+      include: soc
+      name: PB35
+  - number: "66"
+    pad:
+      include: soc
+      name: PA76
+  - number: "67"
+    pad:
+      include: soc
+      name: PA06
+  - number: "68"
+    pad:
+      include: soc
+      name: PA07
+  - number: "69"
+    pad:
+      include: soc
+      name: PA08
+  - number: "70"
+    pad:
+      include: soc
+      name: PA09
+  - number: "71"
+    pad:
+      include: soc
+      name: PA10
+  - number: "72"
+    pad:
+      include: soc
+      name: PA11
+  - number: "73"
+    pad: GND
+  - number: "74"
+    pad: GND
+  - number: "75"
+    pad: GND
+  - number: "76"
+    pad: GND
+  - number: "77"
+    pad: GND
+  - number: "78"
+    pad: GND
+  - number: "79"
+    pad:
+      include: soc
+      name: PB13
+  - number: "80"
+    pad:
+      include: soc
+      name: PB15
+  - number: "81"
+    pad:
+      include: soc
+      name: PB18
+  - number: "82"
+    pad:
+      include: soc
+      name: PB19
+  - number: "83"
+    pad:
+      include: soc
+      name: PB20
+  - number: "84"
+    pad:
+      include: soc
+      name: PB21
+  - number: "85"
+    pad:
+      include: soc
+      name: PA69
+  - number: "86"
+    pad:
+      include: soc
+      name: PA64
+  - number: "87"
+    pad:
+      include: soc
+      name: PA73
+  - number: "88"
+    pad:
+      include: soc
+      name: PA71
+  - number: "89"
+    pad:
+      include: soc
+      name: PA65
