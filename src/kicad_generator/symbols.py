@@ -92,9 +92,9 @@ class SysTemplateUnit:
 
 @dataclass
 class SysTemplate:
-    """Represents a per-series SYS template library."""
+    """Represents a SYS template library keyed by template id."""
 
-    model_id: str
+    template_id: str
     path: Path
     units: Mapping[str, SysTemplateUnit]
 
@@ -147,10 +147,13 @@ class SymbolGenerator:
         manifest_entries: list[dict[str, str]] = []
 
         for entry in series:
-            sys_template = self._load_sys_template(entry.model_id)
             metadata_file = metadata_dir / f"{entry.model_id}.json"
             variants_payload: list[dict[str, object]] = []
             pin_group_bases: dict[int, str] = {}
+            pin_group_ids = {
+                (variant.pin_group_id or id(variant)) for variant in entry.variants
+            }
+            multiple_pin_groups = len(pin_group_ids) > 1
 
             for variant in entry.variants:
                 footprint_artifact = footprints.footprint_for_package(variant.package)
@@ -161,6 +164,19 @@ class SymbolGenerator:
 
                 group_id = variant.pin_group_id or id(variant)
                 base_symbol_name = pin_group_bases.get(group_id)
+                sys_template_id: str | None = None
+                sys_template: SysTemplate | None = None
+                if base_symbol_name is None:
+                    sys_template_id = f"{entry.model_id}__{variant.part_number}"
+                    sys_template = self._load_sys_template(
+                        sys_template_id,
+                        symbol_name_hint=sys_template_id,
+                    )
+                    if sys_template is None and not multiple_pin_groups:
+                        sys_template = self._load_sys_template(
+                            entry.model_id,
+                            symbol_name_hint=entry.model_id,
+                        )
 
                 symbol = self._build_symbol(
                     series=entry,
@@ -168,6 +184,7 @@ class SymbolGenerator:
                     footprint_ref=footprint_artifact.qualified_name,
                     extends=base_symbol_name,
                     sys_template=sys_template,
+                    sys_template_id=sys_template_id,
                 )
 
                 if base_symbol_name is None:
@@ -221,6 +238,7 @@ class SymbolGenerator:
         footprint_ref: str,
         extends: str | None = None,
         sys_template: SysTemplate | None = None,
+        sys_template_id: str | None = None,
     ):
         symbol = self.KicadSymbol.new(variant.part_number, self.library_name)
         if extends:
@@ -250,7 +268,7 @@ class SymbolGenerator:
         sys_unit_names = [unit.name for unit in units if unit.name.upper().startswith("SYS")]
         export_template = bool(sys_unit_names) and sys_template is None
         if export_template:
-            expected_path = self._sys_template_path(series.model_id)
+            expected_path = self._sys_template_path(sys_template_id or series.model_id)
             LOGGER.warning(
                 "SYS template %s missing for series %s (part %s); exporting suggestion template.",
                 expected_path,
@@ -306,42 +324,51 @@ class SymbolGenerator:
     def _sys_template_path(self, model_id: str) -> Path:
         return self.sys_template_dir / f"{model_id}.kicad_sym"
 
-    def _find_sys_template_file(self, model_id: str) -> Path | None:
-        candidate = self.sys_template_dir / f"{model_id}.kicad_sym"
+    def _find_sys_template_file(self, template_id: str) -> Path | None:
+        candidate = self.sys_template_dir / f"{template_id}.kicad_sym"
         if candidate.is_file():
             return candidate
         return None
 
-    def _load_sys_template(self, model_id: str) -> SysTemplate | None:
-        if model_id in self._sys_template_cache:
-            return self._sys_template_cache[model_id]
+    def _load_sys_template(
+        self,
+        template_id: str,
+        symbol_name_hint: str | None = None,
+    ) -> SysTemplate | None:
+        if template_id in self._sys_template_cache:
+            return self._sys_template_cache[template_id]
 
-        path = self._find_sys_template_file(model_id)
+        path = self._find_sys_template_file(template_id)
         if not path:
-            self._sys_template_cache[model_id] = None
+            self._sys_template_cache[template_id] = None
             return None
 
         try:
             library = self.KicadLibrary.from_file(str(path))
         except Exception as exc:  # pragma: no cover - defensive
             LOGGER.warning("Failed to load SYS template %s: %s", path, exc)
-            self._sys_template_cache[model_id] = None
+            self._sys_template_cache[template_id] = None
             return None
 
-        symbol = next((sym for sym in library.symbols if sym.name == model_id), None)
+        preferred_names = [name for name in (symbol_name_hint, template_id) if name]
+        symbol = None
+        for name in preferred_names:
+            symbol = next((sym for sym in library.symbols if sym.name == name), None)
+            if symbol is not None:
+                break
         if symbol is None and library.symbols:
             symbol = library.symbols[0]
 
         if symbol is None:
             LOGGER.warning("SYS template %s does not contain any symbol data.", path)
-            self._sys_template_cache[model_id] = None
+            self._sys_template_cache[template_id] = None
             return None
 
-        template = self._snapshot_sys_template(model_id, path, symbol)
-        self._sys_template_cache[model_id] = template
+        template = self._snapshot_sys_template(template_id, path, symbol)
+        self._sys_template_cache[template_id] = template
         return template
 
-    def _snapshot_sys_template(self, model_id: str, path: Path, symbol) -> SysTemplate:
+    def _snapshot_sys_template(self, template_id: str, path: Path, symbol) -> SysTemplate:
         units: Dict[str, SysTemplateUnit] = {}
         unit_indices: set[int] = set(idx for idx in symbol.unit_names.keys() if isinstance(idx, int))
 
@@ -394,7 +421,7 @@ class SymbolGenerator:
                 texts=texts,
             )
 
-        return SysTemplate(model_id=model_id, path=path, units=units)
+        return SysTemplate(template_id=template_id, path=path, units=units)
 
     def _apply_sys_template_unit(
         self,
@@ -452,7 +479,7 @@ class SymbolGenerator:
         LOGGER.info(
             "Applied SYS template %s for series %s unit %s.",
             template.path,
-            template.model_id,
+            template.template_id,
             unit.name,
         )
         return True, False
@@ -499,7 +526,8 @@ class SymbolGenerator:
             return
 
         mapping = {src: dst for dst, src in enumerate(sys_units, start=1)}
-        template_symbol = self.KicadSymbol.new(model_id, self.library_name)
+        template_id = f"{model_id}__{part_number}"
+        template_symbol = self.KicadSymbol.new(template_id, self.library_name)
         template_symbol.unit_count = len(sys_units)
         template_symbol.demorgan_count = 0
         template_symbol.unit_names = {
