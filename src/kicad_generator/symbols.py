@@ -33,10 +33,11 @@ PIN_TYPE_MAP: Mapping[str, str] = {
 LEFT_TYPES = {"input", "power_input"}
 RIGHT_TYPES = {"output", "power_output"}
 PIN_PITCH = 2.54  # 100 mil vertical spacing
-PIN_LENGTH = 2.54
 BODY_HALF_WIDTH = 5.0
 PIN_CLEARANCE = 1.0
 GRID = 1.27  # 50 mil grid for horizontal alignment
+MIN_PIN_LENGTH = 2 * GRID  # 100 mil (minimum)
+MAX_PIN_LENGTH = 6 * GRID  # 300 mil (maximum)
 SYS_SPLIT_MAX_PINS = 40
 # Each tuple defines a priority level. Subsystems within the same level may be
 # packed together into a SYS unit; subsystems from different levels are never
@@ -801,6 +802,22 @@ class SymbolGenerator:
         pins: list[SymbolPinSpec],
         pair_mode: bool,
     ) -> tuple[int, float]:
+        """Place pins in one unit and return the unit bounds.
+
+        Pin length is derived from the maximum pin number string length within the
+        unit. A single character adds 50mil (1.27mm); the minimum is 100mil and
+        the maximum is 300mil.
+
+        Args:
+            symbol: Target symbol object to mutate.
+            unit: Unit index (1-based).
+            pins: Pins belonging to this unit.
+            pair_mode: True for port units (PA/PB/...), False for SYS/misc units.
+
+        Returns:
+            A tuple of (row_count, body_half_width_mm).
+        """
+        pin_length = self._pin_length_for_unit(pins)
         if pair_mode:
             left, right = self._pair_columns(pins)
         else:
@@ -808,21 +825,27 @@ class SymbolGenerator:
 
         char_width = 0.75
         label_margin = 1.5
-        left_label_len = max((len(spec.name) for spec in left), default=0)
-        right_label_len = max((len(spec.name) for spec in right), default=0)
+
+        def label_len(spec: SymbolPinSpec, include_alt: bool) -> int:
+            if not include_alt:
+                return len(spec.name)
+            alt_len = max((len(mux.function) for mux in spec.pinmux), default=0)
+            return max(len(spec.name), alt_len)
+
+        include_alt = pair_mode
+        left_label_len = max((label_len(spec, include_alt) for spec in left), default=0)
+        right_label_len = max((label_len(spec, include_alt) for spec in right), default=0)
         left_extra = left_label_len * char_width + label_margin
         right_extra = right_label_len * char_width + label_margin
         base_half = max(BODY_HALF_WIDTH, PIN_PITCH)
-        left_offset = base_half + PIN_CLEARANCE + PIN_LENGTH / 2 + left_extra
-        right_offset = base_half + PIN_CLEARANCE + PIN_LENGTH / 2 + right_extra
-        left_offset = self._snap(left_offset)
-        right_offset = self._snap(right_offset)
-        body_half = max(
-            base_half,
-            left_offset - PIN_CLEARANCE - PIN_LENGTH / 2,
-            right_offset - PIN_CLEARANCE - PIN_LENGTH / 2,
-        )
-        body_half = self._snap(body_half)
+        if pair_mode:
+            body_half = base_half + (left_extra + right_extra) / 2
+        else:
+            body_half = base_half + max(left_extra, right_extra)
+        body_half = self._snap(max(base_half, body_half))
+
+        left_offset = self._snap(body_half + pin_length)
+        right_offset = left_offset
 
         max_rows = max(len(left), len(right), 1)
         top_y = (max_rows - 1) * PIN_PITCH / 2
@@ -839,7 +862,7 @@ class SymbolGenerator:
                     posx=x,
                     posy=posy,
                     rotation=rotation,
-                    length=PIN_LENGTH,
+                    length=pin_length,
                     unit=unit,
                 )
                 for mux in spec.pinmux:
@@ -849,6 +872,25 @@ class SymbolGenerator:
         place(left, x=-left_offset, rotation=0)
         place(right, x=right_offset, rotation=180)
         return max_rows, body_half
+
+    def _pin_length_for_unit(self, pins: Sequence[SymbolPinSpec]) -> float:
+        """Compute pin length for a unit based on pin number width.
+
+        The length is derived from the maximum string length of ``pin.number`` in
+        the unit. Each character adds 50mil (1.27mm). The value is clamped to the
+        range 100mil..300mil.
+
+        Args:
+            pins: Pins in the unit.
+
+        Returns:
+            Pin length in millimeters, aligned to the 50mil grid.
+        """
+        max_chars = max((len(spec.number) for spec in pins), default=0)
+        steps = max(2, max_chars)
+        steps = min(steps, int(round(MAX_PIN_LENGTH / GRID)))
+        length = steps * GRID
+        return max(MIN_PIN_LENGTH, min(MAX_PIN_LENGTH, length))
 
     def _extract_datasheet(self, docs: Sequence[Mapping[str, object]]) -> str:
         for entry in docs:
