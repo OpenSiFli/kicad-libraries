@@ -132,6 +132,8 @@ modules/
 
 ## 输出结构
 
+生成器默认输出（`uv run kicad-generator --output-dir build`）：
+
 ```text
 build/
 ├── footprints/
@@ -145,3 +147,22 @@ build/
     │   └── <model_id>.json
     └── manifest.json
 ```
+
+发布目录映射（CI staging）：
+
+```text
+release-staging/
+├── metadata.json
+├── symbols/
+│   └── MCU_SiFli.kicad_sym                  # 来自 build/symbols/libs/MCU_SiFli.kicad_sym
+├── footprints/
+│   └── *.pretty/*.kicad_mod                 # 来自 build/footprints/*.pretty/*.kicad_mod
+└── resources/
+```
+
+可修改入口：
+
+- 生成入口：`src/kicad_generator/cli.py`（`kicad-generator`）
+- 编排逻辑：`src/kicad_generator/runner.py`
+- 发布工作流：`.github/workflows/release.yml`
+- 打包脚本：`scripts/build_release.py`
