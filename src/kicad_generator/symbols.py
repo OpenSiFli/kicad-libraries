@@ -46,14 +46,9 @@ SYS_SPLIT_MAX_PINS = 40
 # - Include "over" in a level tuple to force a part break after each subsystem
 #   in that level (i.e. disable greedy packing within that level).
 SYS_SUBSYSTEM_PRIORITY_LEVELS: Tuple[Tuple[str, ...], ...] = (
-    ("power",),
-    ("analog",),
-    ("rf",),
-    ("crystal",),
-    ("audio",),
-    ("mipi",),
-    ("usb",),
-    ("strapping",),
+    ("power", "analog", "over"),
+    ("crystal", "rf", "strapping"),
+    ("audio", "mipi", "usb"),
 )
 
 

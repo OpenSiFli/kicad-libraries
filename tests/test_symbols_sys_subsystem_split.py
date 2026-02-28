@@ -60,9 +60,9 @@ class TestSysSubsystemPacking(unittest.TestCase):
         units = gen._group_sys_units(misc)
         self.assertEqual(
             [unit.name for unit in units],
-            ["SYS1", "SYS2", "SYS3", "SYS4", "SYS5", "SYS6", "SYS7", "SYS8", "SYS9"],
+            ["SYS1", "SYS2", "SYS3", "SYS4", "SYS5"],
         )
-        self.assertEqual([len(unit.pins) for unit in units], [46, 12, 9, 4, 9, 10, 4, 1, 1])
+        self.assertEqual([len(unit.pins) for unit in units], [46, 12, 14, 23, 1])
         self.assertEqual({spec.subsystem for spec in units[0].pins}, {"power"})
 
         subsystem_seen: dict[str | None, str] = {}
