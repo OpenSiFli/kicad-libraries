@@ -16,6 +16,7 @@ pads:
       - I2C1_SDA
   VBAT: &VBAT
     type: power_input
+    subsystem: power
     description: "Battery input"
 variants:
   - part_number: SF32LB52BU36
@@ -48,7 +49,7 @@ SiliconSchema/
 | YAML 字段 | Python 类 | 说明 |
 | --------- | --------- | ---- |
 | 顶层 | `ChipSeries` | model_id（取 `out/<series>/` 目录名）, lifecycle, pads, variants |
-| `pads.*` | `ChipPad` | name, type, pinmux |
+| `pads.*` | `ChipPad` | name, type, subsystem, pinmux |
 | `pads.*.functions[]` | `PinmuxEntry` | function, description |
 | `variants[]` | `ChipVariant` | part_number, package, pins, pin_group_id |
 | `variants[].pins[]` | `ChipVariantPin` | number, pads（支持单个字符串或数组） |
