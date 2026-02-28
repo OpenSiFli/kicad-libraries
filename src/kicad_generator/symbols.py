@@ -127,8 +127,6 @@ class SymbolGenerator:
         self.Rectangle = Rectangle
         self.sys_template_dir = self._resolve_sys_template_dir()
         self._sys_template_cache: Dict[str, SysTemplate | None] = {}
-        self._sys_template_missing: set[str] = set()
-        self._sys_template_written: set[str] = set()
 
     def generate(
         self,
@@ -249,16 +247,25 @@ class SymbolGenerator:
         symbol.unit_count = len(units)
         symbol.unit_names = {idx + 1: unit.name for idx, unit in enumerate(units)}
 
+        sys_unit_names = [unit.name for unit in units if unit.name.upper().startswith("SYS")]
+        export_template = bool(sys_unit_names) and sys_template is None
+        if export_template:
+            expected_path = self._sys_template_path(series.model_id)
+            LOGGER.warning(
+                "SYS template %s missing for series %s (part %s); exporting suggestion template.",
+                expected_path,
+                series.model_id,
+                variant.part_number,
+            )
+
         unit_bounds: list[tuple[int, float] | None] = []
         for idx, unit in enumerate(units, start=1):
-            if (
-                sys_template
-                and unit.name
-                and unit.name.upper().startswith("SYS")
-                and self._apply_sys_template_unit(symbol, idx, unit, sys_template)
-            ):
-                unit_bounds.append(None)
-                continue
+            if sys_template and unit.name.upper().startswith("SYS"):
+                applied, mismatch = self._apply_sys_template_unit(symbol, idx, unit, sys_template)
+                if applied:
+                    unit_bounds.append(None)
+                    continue
+                export_template = export_template or mismatch
 
             max_rows, half_width = self._place_pins(
                 symbol,
@@ -279,8 +286,12 @@ class SymbolGenerator:
             rect.unit = idx
             symbol.rectangles.append(rect)
 
-        if self._should_export_sys_template(series.model_id):
-            self._export_sys_template(series.model_id, symbol)
+        if export_template:
+            self._export_sys_template_suggestion(
+                model_id=series.model_id,
+                part_number=variant.part_number,
+                symbol=symbol,
+            )
 
         return symbol
 
@@ -307,7 +318,6 @@ class SymbolGenerator:
 
         path = self._find_sys_template_file(model_id)
         if not path:
-            self._sys_template_missing.add(model_id)
             self._sys_template_cache[model_id] = None
             return None
 
@@ -392,10 +402,11 @@ class SymbolGenerator:
         unit_index: int,
         unit: "SymbolGenerator.Unit",
         template: SysTemplate,
-    ) -> bool:
+    ) -> tuple[bool, bool]:
         template_unit = template.unit_for_name(unit.name)
         if not template_unit:
-            return False
+            LOGGER.warning("SYS template %s missing unit %s.", template.path, unit.name)
+            return False, True
 
         missing = [spec.name for spec in unit.pins if not template_unit.get_pin(spec)]
         if missing:
@@ -405,7 +416,7 @@ class SymbolGenerator:
                 unit.name,
                 ", ".join(missing),
             )
-            return False
+            return False, True
 
         self._extend_graphics(symbol, "rectangles", template_unit.rectangles, unit_index)
         self._extend_graphics(symbol, "circles", template_unit.circles, unit_index)
@@ -444,7 +455,7 @@ class SymbolGenerator:
             template.model_id,
             unit.name,
         )
-        return True
+        return True, False
 
     def _extend_graphics(
         self,
@@ -464,15 +475,20 @@ class SymbolGenerator:
                 setattr(clone, "demorgan", 0)
             target.append(clone)
 
-    def _should_export_sys_template(self, model_id: str) -> bool:
-        return (
-            model_id in self._sys_template_missing
-            and model_id not in self._sys_template_written
-        )
+    def _export_sys_template_suggestion(self, model_id: str, part_number: str, symbol) -> None:
+        """Write a SYS template suggestion into the output directory.
 
-    def _export_sys_template(self, model_id: str, symbol) -> None:
-        if model_id not in self._sys_template_missing or model_id in self._sys_template_written:
-            return
+        Repository templates under templates/sys/ are treated as read-only inputs.
+        When a template is missing or does not match the generated SYS units, a
+        suggestion template is emitted under:
+
+            output_dir/template/<model_id>__<part_number>.kicad_sym
+
+        Args:
+            model_id: SiliconSchema series identifier (used as the template symbol name).
+            part_number: Variant part number used to disambiguate output filenames.
+            symbol: Generated symbol that contains the SYS units to export.
+        """
 
         sys_units = [
             idx
@@ -514,13 +530,13 @@ class SymbolGenerator:
         transfer(symbol.beziers, template_symbol.beziers)
         transfer(symbol.texts, template_symbol.texts)
 
-        path = self._sys_template_path(model_id)
-        path.parent.mkdir(parents=True, exist_ok=True)
+        template_dir = self.output_dir / "template"
+        template_dir.mkdir(parents=True, exist_ok=True)
+        path = template_dir / f"{model_id}__{part_number}.kicad_sym"
         library = self.KicadLibrary(str(path))
         library.symbols = [template_symbol]
         library.write()
-        self._sys_template_written.add(model_id)
-        LOGGER.info("Wrote default SYS template to %s", path)
+        LOGGER.warning("Wrote SYS template suggestion to %s", path)
 
     def _collect_pin_specs(
         self,
