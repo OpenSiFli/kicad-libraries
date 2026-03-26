@@ -100,6 +100,7 @@ def run(options: GeneratorOptions) -> int:
             output_dir=options.output_dir,
             namespace=options.footprint_namespace,
             footprint_repo=repo_root,
+            module_footprint_dir=options.module_footprint_dir,
         )
 
         footprint_result = footprint_generator.generate(

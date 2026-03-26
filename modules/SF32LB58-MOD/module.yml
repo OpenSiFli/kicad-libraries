@@ -11,4 +11,3 @@ variants:
   - part_number: SF32LB58-MOD
     package: SF32LB58-MOD
     pins_file: pins.yml
-footprint_file: footprint.yml

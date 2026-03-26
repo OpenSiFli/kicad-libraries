@@ -80,7 +80,7 @@ SiliconSchema pad type → KiCad pin electrical type，例：`bidirectional` →
 
 `load_footprint_manifest()` 用于 `--symbols-only` 模式，从已有 manifest 恢复封装信息。
 
-## module_loader.py / module_footprints.py — 模组生成
+## module_loader.py — 模组定义与手工封装
 
 模组生成以本仓库 `modules/*/module.yml` 为真源（而非 SiliconSchema 子模块），并支持两类引脚来源：
 
@@ -94,18 +94,24 @@ SiliconSchema pad type → KiCad pin electrical type，例：`bidirectional` →
 modules/
 └── <module_id>/
     ├── module.yml     # 元信息 + include + variants
-    ├── pins.yml       # 引脚表（number → pad/include）+ 本地 pads 定义
-    └── footprint.yml  # 推荐 PCB 封装 DSL（pad_groups / keepouts / body）
+    └── pins.yml       # 引脚表（number → pad/include）+ 本地 pads 定义
 ```
 
 其中：
 
 - `module.yml.variants[].package` 作为 KiCad footprint 的 package key（会写入 footprint manifest）。
 - `pins.yml.pins[].pad` 可为字符串（本地 pad）或 `{include,name}`（引用 include pad）。
-- `footprint.yml` 中 `pad_groups` 的 pad number 必须与 `pins.yml` 一致（生成时会校验）。
 
-封装生成使用一个轻量 DSL（row/grid/single 的 pad group），并支持生成真实的 KiCad keepout zone
-（例如天线禁布区），输出到 `build/footprints/<namespace>.pretty/`。
+模块封装不再通过 YAML DSL 自动生成。手工维护的 `.kicad_mod` 统一放在单独目录：
+
+```text
+module-footprints/
+└── <library>.pretty/
+    └── <package>.kicad_mod
+```
+
+生成器遇到模组 package 时，不会再创建封装，而是从 `module-footprints/` 复制对应的
+`.kicad_mod` 到 `build/footprints/<library>.pretty/`，并写入 `manifest.json` 供符号生成引用。
 
 ## footprint_loader.py — 封装参数
 
@@ -156,7 +162,7 @@ release-staging/
 ├── symbols/
 │   └── MCU_SiFli.kicad_sym                  # 来自 build/symbols/libs/MCU_SiFli.kicad_sym
 ├── footprints/
-│   └── *.pretty/*.kicad_mod                 # 来自 build/footprints/*.pretty/*.kicad_mod
+│   └── *.pretty/*.kicad_mod                 # 来自 build/footprints/*.pretty/*.kicad_mod，并叠加 module-footprints/*.pretty/*.kicad_mod
 └── resources/
 ```
 

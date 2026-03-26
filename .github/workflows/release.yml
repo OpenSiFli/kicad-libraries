@@ -40,6 +40,9 @@ jobs:
           cp metadata.json release-staging/metadata.json
           cp build/symbols/libs/MCU_SiFli.kicad_sym release-staging/symbols/MCU_SiFli.kicad_sym
           find build/footprints -maxdepth 1 -type d -name '*.pretty' -exec cp -R {} release-staging/footprints/ \;
+          if [ -d module-footprints ]; then
+            find module-footprints -maxdepth 1 -type d -name '*.pretty' -exec cp -R {} release-staging/footprints/ \;
+          fi
 
           if [ -d resources ]; then
             cp -R resources/. release-staging/resources/

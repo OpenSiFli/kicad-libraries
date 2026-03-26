@@ -86,12 +86,10 @@ class ModuleVariantDefinition:
 
 @dataclass(frozen=True)
 class ModuleDefinition:
-    """Loaded module definition (module.yml + pins.yml + footprint.yml path).
+    """Loaded module definition (module.yml + pins.yml).
 
-    This structure is the source of truth for generating:
-
-    - module footprints (package/layout driven)
-    - module symbols (pins driven, with optional pinmux inherited from includes)
+    This structure is the source of truth for generating module symbols,
+    with optional pinmux inherited from includes.
     """
 
     module_id: str
@@ -101,7 +99,6 @@ class ModuleDefinition:
     variants: Sequence[ModuleVariantDefinition]
     pads: Mapping[str, ModulePadSpec]
     pins_by_variant: Mapping[str, Sequence[ModulePin]]
-    footprint_file: Path
     root_dir: Path
     source_path: Path
 
@@ -129,7 +126,6 @@ class ModuleLibrary:
         Expected layout:
             modules/<module_id>/module.yml
             modules/<module_id>/pins.yml
-            modules/<module_id>/footprint.yml
 
         Args:
             directory: Root directory that contains per-module subdirectories.
@@ -317,11 +313,6 @@ class ModuleLibrary:
 
         includes = cls._parse_includes(raw.get("includes") or {}, module_file)
         variants = cls._parse_variants(raw.get("variants") or [], root, module_file)
-        footprint_file_raw = raw.get("footprint_file")
-        if not footprint_file_raw:
-            raise ValueError(f"Module {module_id} is missing footprint_file in {module_file}")
-        footprint_file = (root / str(footprint_file_raw)).resolve()
-
         pads: dict[str, ModulePadSpec] = {}
         pins_by_variant: dict[str, Sequence[ModulePin]] = {}
         pins_cache: dict[Path, tuple[Sequence[ModulePin], Mapping[str, ModulePadSpec]]] = {}
@@ -346,7 +337,6 @@ class ModuleLibrary:
             variants=variants,
             pads=pads,
             pins_by_variant=pins_by_variant,
-            footprint_file=footprint_file,
             root_dir=root,
             source_path=module_file,
         )

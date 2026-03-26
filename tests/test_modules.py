@@ -9,7 +9,8 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 
 
-from kicad_generator.module_footprints import ModuleFootprintGenerator  # noqa: E402
+from kicad_generator.footprint_loader import FootprintLibrary  # noqa: E402
+from kicad_generator.footprints import FootprintGenerator  # noqa: E402
 from kicad_generator.module_loader import ModuleLibrary  # noqa: E402
 from kicad_generator.schema_loader import SiliconSchemaRepository  # noqa: E402
 
@@ -19,7 +20,10 @@ class TestModuleLibrary(unittest.TestCase):
         import yaml
 
         path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text(yaml.safe_dump(payload, sort_keys=False, allow_unicode=True), encoding="utf-8")
+        path.write_text(
+            yaml.safe_dump(payload, sort_keys=False, allow_unicode=True),
+            encoding="utf-8",
+        )
 
     def test_module_to_chip_series_merges_include_and_local(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -60,7 +64,6 @@ class TestModuleLibrary(unittest.TestCase):
                             "pins_file": "pins.yml",
                         }
                     ],
-                    "footprint_file": "footprint.yml",
                 },
             )
             self._write_yaml(
@@ -102,7 +105,7 @@ class TestModuleLibrary(unittest.TestCase):
             self.assertEqual(pin2.pads, ("PA44",))
             self.assertEqual(pin2.description, "PA44_DPI_R0")
 
-    def test_module_footprint_generates_keepout_zone(self) -> None:
+    def test_manual_module_footprint_is_copied_into_output(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             tmp_path = Path(tmp)
 
@@ -123,7 +126,6 @@ class TestModuleLibrary(unittest.TestCase):
                             "pins_file": "pins.yml",
                         }
                     ],
-                    "footprint_file": "footprint.yml",
                 },
             )
             self._write_yaml(
@@ -133,88 +135,56 @@ class TestModuleLibrary(unittest.TestCase):
                     "pins": [{"number": "1", "pad": "GND"}],
                 },
             )
-            self._write_yaml(
-                module_dir / "footprint.yml",
-                {
-                    "footprint": {
-                        "name": "TEST-MOD",
-                        "courtyard_margin": 0.25,
-                        "body": {"width": 10.0, "height": 10.0},
-                        "keepouts": [
-                            {
-                                "name": "Antenna",
-                                "layers": ["*.Cu"],
-                                "shape": "rect",
-                                "start": [-2.0, 2.0],
-                                "end": [2.0, 4.0],
-                                "rules": {
-                                    "tracks": "deny",
-                                    "vias": "deny",
-                                    "pads": "deny",
-                                    "copperpour": "deny",
-                                    "footprints": "deny",
-                                },
-                            }
-                        ],
-                        "pad_groups": [
-                            {
-                                "kind": "single",
-                                "number": "1",
-                                "at": [0.0, 0.0],
-                                "pad": {"size": [1.0, 1.0], "shape": "rect"},
-                            }
-                        ],
-                    }
-                },
-            )
+
+            manual_root = tmp_path / "module-footprints" / "SiFli_MOD.pretty"
+            manual_root.mkdir(parents=True, exist_ok=True)
+            manual_file = manual_root / "TEST-MOD.kicad_mod"
+            manual_content = '(footprint "TEST-MOD"\n\t(version 20241229)\n\t(layer "F.Cu")\n)\n'
+            manual_file.write_text(manual_content, encoding="utf-8")
 
             lib = ModuleLibrary.from_directory(modules_root)
-            entry = lib.package_entry("TEST-MOD")
-            self.assertIsNotNone(entry)
-            assert entry is not None
-            module, variant = entry
+            repo = SiliconSchemaRepository(silicon_root)
+            series = lib.to_chip_series(repo)
 
-            generator = ModuleFootprintGenerator(ROOT / "kicad-footprint-generator")
-            artifact = generator.generate(
+            generator = FootprintGenerator(
                 output_dir=tmp_path / "out",
-                namespace="PCM_SiFli_MOD",
-                module=module,
-                variant=variant,
+                namespace="SiFli_MOD",
+                footprint_repo=ROOT / "kicad-footprint-generator",
+                module_footprint_dir=tmp_path / "module-footprints",
             )
-            self.assertTrue(artifact.path.is_file())
-            content = artifact.path.read_text(encoding="utf-8")
-            self.assertIn("(zone", content)
-            self.assertIn("(keepout", content)
-            self.assertIn('layers "*.Cu"', content)
-            self.assertIn("(tracks not_allowed)", content)
-            self.assertIn("(vias not_allowed)", content)
+            result = generator.generate(
+                series=series,
+                library=FootprintLibrary({}),
+                module_library=lib,
+            )
 
-    def test_repository_module_specs_generate(self) -> None:
+            artifact = result.footprint_for_package("TEST-MOD")
+            self.assertIsNotNone(artifact)
+            assert artifact is not None
+            self.assertTrue(artifact.path.is_file())
+            self.assertEqual(artifact.path.read_text(encoding="utf-8"), manual_content)
+            self.assertEqual(artifact.library, "SiFli_MOD")
+            self.assertEqual(artifact.qualified_name, "PCM_SiFli_MOD:TEST-MOD")
+            self.assertEqual(result.missing, [])
+
+    def test_repository_manual_module_footprints_exist_for_all_modules(self) -> None:
         modules_root = ROOT / "modules"
         if not modules_root.is_dir():
             self.skipTest("Repository does not ship module YAML definitions.")
 
+        manual_root = ROOT / "module-footprints"
+        if not manual_root.is_dir():
+            self.skipTest("Repository does not ship manual module footprints.")
+
         lib = ModuleLibrary.from_directory(modules_root)
-        generator = ModuleFootprintGenerator(ROOT / "kicad-footprint-generator")
+        missing: list[str] = []
+        for module in lib.modules():
+            for variant in module.variants:
+                expected = manual_root / "SiFli_MOD.pretty" / f"{variant.package}.kicad_mod"
+                if not expected.is_file():
+                    missing.append(str(expected))
 
-        with tempfile.TemporaryDirectory() as tmp:
-            tmp_path = Path(tmp)
-            found_any = False
-            for module in lib.modules():
-                for variant in module.variants:
-                    found_any = True
-                    artifact = generator.generate(
-                        output_dir=tmp_path / "out",
-                        namespace="PCM_SiFli_MOD",
-                        module=module,
-                        variant=variant,
-                    )
-                    self.assertTrue(artifact.path.is_file())
-                    content = artifact.path.read_text(encoding="utf-8")
-                    self.assertIn("(footprint", content)
-
-            if not found_any:
-                self.skipTest("No module variants found in repository modules directory.")
+        self.assertEqual(missing, [])
 
 
 if __name__ == "__main__":

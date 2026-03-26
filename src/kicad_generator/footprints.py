@@ -4,14 +4,14 @@ import json
 import itertools
 import logging
 import re
+import shutil
 from dataclasses import dataclass
 from pathlib import Path
 from string import ascii_uppercase
 from typing import Any, Iterable, Mapping, Sequence
 
 from .footprint_loader import FootprintLibrary, FootprintPackageDefinition
-from .module_footprints import ModuleFootprintGenerator
-from .module_loader import ModuleDefinition, ModuleLibrary, ModuleVariantDefinition
+from .module_loader import ModuleLibrary
 from .schema_loader import ChipSeries
 from .upstream import ensure_footprint_repo_on_sys_path
 
@@ -525,38 +525,57 @@ class GridArrayGeneratorAdapter:
         return [path] if path.is_file() else []
 
 
-class ModuleFootprintAdapter:
-    """Generates module footprints using the local module DSL."""
+class ManualModuleFootprintAdapter:
+    """Copies manually maintained module footprints into the output tree."""
 
-    def __init__(self, repo_root: Path) -> None:
-        self.generator = ModuleFootprintGenerator(repo_root)
+    def __init__(self, source_dir: Path | None) -> None:
+        self.source_dir = source_dir
 
-    def generate(
-        self,
-        *,
-        output_dir: Path,
-        namespace: str,
-        module: ModuleDefinition,
-        variant: ModuleVariantDefinition,
-    ) -> list[Path]:
-        artifact = self.generator.generate(
-            output_dir=output_dir,
-            namespace=namespace,
-            module=module,
-            variant=variant,
-        )
-        return [artifact.path] if artifact.path.is_file() else []
+    def _find_source(self, package_name: str) -> Path | None:
+        if self.source_dir is None or not self.source_dir.is_dir():
+            return None
+
+        matches = [
+            path
+            for path in self.source_dir.rglob(f"{package_name}.kicad_mod")
+            if path.parent.name.endswith(".pretty")
+        ]
+        if not matches:
+            return None
+        if len(matches) > 1:
+            paths = ", ".join(str(path) for path in matches)
+            raise ValueError(
+                f"Multiple manual module footprints found for package {package_name}: {paths}"
+            )
+        return matches[0]
+
+    def generate(self, *, output_dir: Path, package_name: str) -> list[Path]:
+        source = self._find_source(package_name)
+        if source is None:
+            return []
+
+        library_dir = output_dir / source.parent.name
+        library_dir.mkdir(parents=True, exist_ok=True)
+        destination = library_dir / source.name
+        shutil.copy2(source, destination)
+        return [destination] if destination.is_file() else []
 
 
 class FootprintGenerator:
     """Produces KiCad footprints via the upstream generators."""
 
-    def __init__(self, output_dir: Path, namespace: str, footprint_repo: Path) -> None:
+    def __init__(
+        self,
+        output_dir: Path,
+        namespace: str,
+        footprint_repo: Path,
+        module_footprint_dir: Path | None = None,
+    ) -> None:
         self.output_dir = output_dir
         self.namespace = namespace
         self.no_lead_adapter = NoLeadGeneratorAdapter(footprint_repo)
         self.grid_array_adapter = GridArrayGeneratorAdapter(footprint_repo)
-        self.module_adapter = ModuleFootprintAdapter(footprint_repo)
+        self.module_adapter = ManualModuleFootprintAdapter(module_footprint_dir)
 
     def _planned_packages(self, series: Sequence[ChipSeries]) -> list[str]:
         packages = {variant.package for item in series for variant in item.variants}
@@ -589,12 +608,9 @@ class FootprintGenerator:
 
             module_entry = module_library.package_entry(package_name) if module_library else None
             if module_entry is not None:
-                module, variant = module_entry
                 generated_paths = self.module_adapter.generate(
-                    output_dir=self.output_dir,
-                    namespace=self.namespace,
-                    module=module,
-                    variant=variant,
+                    output_dir=footprints_root,
+                    package_name=package_name,
                 )
             elif is_sifli_bga_package(package_name):
                 package = parse_sifli_bga_package_name(package_name)

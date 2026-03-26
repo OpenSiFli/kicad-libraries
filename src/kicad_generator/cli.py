@@ -64,6 +64,15 @@ def build_parser() -> argparse.ArgumentParser:
         ),
     )
     parser.add_argument(
+        "--module-footprint-dir",
+        type=Path,
+        help=(
+            "Optional directory that contains manually maintained module footprints "
+            "structured as *.pretty/*.kicad_mod. If omitted, defaults to "
+            "./module-footprints when present."
+        ),
+    )
+    parser.add_argument(
         "--footprint-data-dir",
         type=Path,
         help=(
@@ -164,6 +173,12 @@ def options_from_args(args: argparse.Namespace) -> GeneratorOptions:
         candidate = workspace_root / "modules"
         module_data_dir = candidate.resolve() if candidate.is_dir() else None
 
+    if args.module_footprint_dir:
+        module_footprint_dir = args.module_footprint_dir.expanduser().resolve()
+    else:
+        candidate = workspace_root / "module-footprints"
+        module_footprint_dir = candidate.resolve() if candidate.is_dir() else None
+
     output_dir = args.output_dir.expanduser().resolve()
 
     targets = GeneratorTargets.from_flags(args.footprints_only, args.symbols_only)
@@ -189,6 +204,7 @@ def options_from_args(args: argparse.Namespace) -> GeneratorOptions:
         schema_dir=schema_dir,
         footprint_data_dir=footprint_data_dir,
         module_data_dir=module_data_dir,
+        module_footprint_dir=module_footprint_dir,
         output_dir=output_dir,
         targets=targets,
         series_filter=series_filter,

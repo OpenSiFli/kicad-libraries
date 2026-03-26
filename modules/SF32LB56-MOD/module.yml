@@ -11,4 +11,3 @@ variants:
   - part_number: SF32LB56-MOD
     package: SF32LB56-MOD
     pins_file: pins.yml
-footprint_file: footprint.yml
