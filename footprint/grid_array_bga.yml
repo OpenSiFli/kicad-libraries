@@ -1,0 +1,37 @@
+# Local BGA footprint overrides for SiFli packages.
+#
+# Dimensions were extracted from:
+#   - DS5601-SF32LB56x Chip Datasheet V1.9.2, Figure 5-4
+#   - DS5801-SF32LB58x Chip Datasheet V1.8.3, Figure 5-2
+#
+# This file is consumed by src/kicad_generator/footprint_loader.py and passed into
+# the upstream kicad-footprint-generator grid_array generator.
+#
+schema_version: 1
+units: mm
+family: grid_array
+
+defaults:
+  package_type: BGA
+  pitch: 0.4
+  overall_height: 0.94
+  body_pcb_gap: 0.18
+  ball_diameter: 0.25
+  pad_diameter: 0.23
+
+packages:
+  - name: SiFli_BGA-175_6.5x6.1mm_Layout16x15_P0.4mm
+    description: "SF32LB56x WBBGA175 package dimensions"
+    datasheet: "https://downloads.sifli.com/user%20manual/DS5601-SF32LB56x-Datasheet%20V1p9p2.pdf"
+    body_size_x: 6.5
+    body_size_y: 6.1
+    layout_x: 16
+    layout_y: 15
+
+  - name: SiFli_BGA-256_8.5x6.5mm_Layout21x16_P0.4mm
+    description: "SF32LB58x BGA256 package dimensions"
+    datasheet: "https://downloads.sifli.com/user%20manual/DS5801-SF32LB58x-Datasheet%20V1p8p3.pdf"
+    body_size_x: 8.5
+    body_size_y: 6.5
+    layout_x: 21
+    layout_y: 16

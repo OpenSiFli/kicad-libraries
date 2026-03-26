@@ -1,5 +1,7 @@
 import sys
+import tempfile
 import unittest
+from dataclasses import replace
 from pathlib import Path
 
 
@@ -8,7 +10,9 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 
 
+from kicad_generator.footprint_loader import FootprintLibrary  # noqa: E402
 from kicad_generator.footprints import (  # noqa: E402
+    FootprintGenerator,
     bga_row_names,
     infer_sifli_bga_pad_skips,
     infer_sifli_bga_present_balls,
@@ -20,6 +24,7 @@ from kicad_generator.schema_loader import (  # noqa: E402
     ChipVariant,
     ChipVariantPin,
     PinmuxEntry,
+    SiliconSchemaRepository,
 )
 
 
@@ -116,6 +121,69 @@ class TestBgaVariantConsistency(unittest.TestCase):
         )
         with self.assertRaises(ValueError):
             infer_sifli_bga_present_balls(series, "SiFli_BGA-2_1x1mm_Layout2x1_P0.4mm")
+
+
+class TestBgaFootprintDefinitions(unittest.TestCase):
+    def test_repository_bga_definitions_match_datasheet_dimensions(self) -> None:
+        library = FootprintLibrary.from_directory(ROOT / "footprint")
+        expected = {
+            "SiFli_BGA-175_6.5x6.1mm_Layout16x15_P0.4mm": {
+                "body_size_x": 6.5,
+                "body_size_y": 6.1,
+                "layout_x": 16,
+                "layout_y": 15,
+                "pitch": 0.4,
+                "overall_height": 0.94,
+                "body_pcb_gap": 0.18,
+                "ball_diameter": 0.25,
+                "pad_diameter": 0.23,
+            },
+            "SiFli_BGA-256_8.5x6.5mm_Layout21x16_P0.4mm": {
+                "body_size_x": 8.5,
+                "body_size_y": 6.5,
+                "layout_x": 21,
+                "layout_y": 16,
+                "pitch": 0.4,
+                "overall_height": 0.94,
+                "body_pcb_gap": 0.18,
+                "ball_diameter": 0.25,
+                "pad_diameter": 0.23,
+            },
+        }
+
+        for package_name, params in expected.items():
+            definition = library.get(package_name)
+            self.assertIsNotNone(definition)
+            assert definition is not None
+            for key, expected_value in params.items():
+                self.assertEqual(definition.parameters[key], expected_value)
+
+    def test_generated_bga_footprint_uses_repository_pad_size(self) -> None:
+        package_name = "SiFli_BGA-175_6.5x6.1mm_Layout16x15_P0.4mm"
+        library = FootprintLibrary.from_directory(ROOT / "footprint")
+        repo = SiliconSchemaRepository(ROOT / "SiliconSchema")
+        source_series = repo.load_series(["SF32LB56x"])[0]
+        variants = tuple(variant for variant in source_series.variants if variant.package == package_name)
+        self.assertTrue(variants)
+
+        series = (replace(source_series, variants=variants),)
+        with tempfile.TemporaryDirectory() as tmp:
+            generator = FootprintGenerator(
+                output_dir=Path(tmp),
+                namespace="SiFli_MOD",
+                footprint_repo=ROOT / "kicad-footprint-generator",
+            )
+            result = generator.generate(series=series, library=library)
+
+            artifact = result.footprint_for_package(package_name)
+            self.assertIsNotNone(artifact)
+            assert artifact is not None
+            self.assertTrue(artifact.path.is_file())
+            self.assertEqual(artifact.library, "Package_BGA")
+
+            content = artifact.path.read_text(encoding="utf-8")
+            self.assertIn("(size 0.23 0.23)", content)
+            self.assertIn("DS5601-SF32LB56x-Datasheet%20V1p9p2.pdf", content)
 
 
 if __name__ == "__main__":
